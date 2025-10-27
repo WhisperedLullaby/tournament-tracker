@@ -121,19 +121,24 @@ export function RegistrationForm() {
     }
   };
 
+  // Calculate current step index
+  const currentStepIndex = stepper.all.findIndex(
+    (step) => step.id === stepper.current.id
+  );
+
   return (
     <Card className="border-primary/20 bg-card/90 w-full max-w-md shadow-xl backdrop-blur-sm">
       <CardHeader>
         <CardTitle className="text-2xl">{stepper.current.title}</CardTitle>
         <CardDescription>
-          Step {stepper.current.index + 1} of {stepper.all.length}
+          Step {currentStepIndex + 1} of {stepper.all.length}
         </CardDescription>
         {/* Progress bar */}
         <div className="bg-muted mt-4 h-2 w-full overflow-hidden rounded-full">
           <div
             className="bg-primary h-full transition-all duration-300"
             style={{
-              width: `${((stepper.current.index + 1) / stepper.all.length) * 100}%`,
+              width: `${((currentStepIndex + 1) / stepper.all.length) * 100}%`,
             }}
           />
         </div>

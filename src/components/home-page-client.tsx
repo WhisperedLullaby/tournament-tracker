@@ -88,7 +88,7 @@ export function HomePageClient() {
       {/* Tournament Info Section */}
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4">
-          <h2 className="text-primary mb-12 text-center text-3xl font-bold sm:text-4xl">
+          <h2 className="text-primary mb-12 text-5xl font-bold sm:text-7xl">
             Tournament Information
           </h2>
 
@@ -158,8 +158,8 @@ export function HomePageClient() {
       {/* Format Section */}
       <section className="bg-muted/30 py-16 md:py-24">
         <div className="container mx-auto px-4">
-          <div className="mx-auto max-w-4xl">
-            <h2 className="text-primary mb-8 text-center text-3xl font-bold sm:text-4xl">
+          <div className="mx-auto">
+            <h2 className="text-primary mb-8 text-right text-5xl font-bold sm:text-7xl">
               Tournament Format
             </h2>
 
@@ -229,7 +229,10 @@ export function HomePageClient() {
       {/* Rules Section */}
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4">
-          <div className="mx-auto max-w-3xl">
+          <div className="mx-auto">
+            <h2 className="text-primary mb-12 text-5xl font-bold sm:text-7xl">
+              Tournament Rules
+            </h2>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-2xl">
