@@ -54,7 +54,7 @@ export function RegistrationConfirmationEmail({
           </p>
 
           <p style={{ fontSize: "16px", lineHeight: "1.6" }}>
-            You're all set! Your pod has been successfully registered for the
+            You&apos;re all set! Your pod has been successfully registered for the
             Bonnie & Clyde Draft 2s tournament.
           </p>
 
@@ -151,7 +151,7 @@ export function RegistrationConfirmationEmail({
               balanced teams
             </li>
             <li>
-              <strong>Reverse Coed Rules:</strong> Women's net height, special
+              <strong>Reverse Coed Rules:</strong> Women&apos;s net height, special
               restrictions for male players
             </li>
             <li>
@@ -194,7 +194,7 @@ export function RegistrationConfirmationEmail({
             }}
           >
             <p style={{ fontSize: "15px", lineHeight: "1.6", margin: 0 }}>
-              We'll send you more details closer to the tournament date. If you
+              We&apos;ll send you more details closer to the tournament date. If you
               have any questions, feel free to reply to this email.
             </p>
             <p

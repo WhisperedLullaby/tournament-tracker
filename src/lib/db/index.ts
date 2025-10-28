@@ -3,7 +3,7 @@ import postgres from "postgres";
 import * as schema from "./schema";
 
 // Create postgres connection
-const connectionString = process.env.DATABASE_URL!;
+const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
   throw new Error(

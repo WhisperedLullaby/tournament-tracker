@@ -5,7 +5,6 @@ import {
   integer,
   timestamp,
   pgEnum,
-  uuid,
   json,
 } from "drizzle-orm/pg-core";
 
