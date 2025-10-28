@@ -113,9 +113,9 @@ export async function POST(request: NextRequest) {
     // Send confirmation email
     try {
       await resend.emails.send({
-        from: "Bonnie & Clyde Tournament <tournament@hewwopwincess.com>",
+        from: "Hewwo Pwincess - Two Peas Pod Tournament <tournament@hewwopwincess.com>",
         to: [email],
-        subject: "Registration Confirmed - Bonnie & Clyde Draft 2s",
+        subject: "Registration Confirmed - Two Peas Pod Tournament",
         react: RegistrationConfirmationEmail({
           teamName: finalTeamName,
           player1,

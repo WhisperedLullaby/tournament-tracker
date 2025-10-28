@@ -34,7 +34,7 @@ export function RegistrationConfirmationEmail({
           }}
         >
           <h1 style={{ margin: 0, fontSize: "28px" }}>
-            Welcome to Bonnie & Clyde!
+            You&apos;re now Two Peas in a Pod!
           </h1>
           <p style={{ margin: "10px 0 0 0", fontSize: "16px", opacity: 0.9 }}>
             Registration Confirmed
@@ -54,8 +54,8 @@ export function RegistrationConfirmationEmail({
           </p>
 
           <p style={{ fontSize: "16px", lineHeight: "1.6" }}>
-            You&apos;re all set! Your pod has been successfully registered for the
-            Bonnie & Clyde Draft 2s tournament.
+            You&apos;re all set! Your pod has been successfully registered for
+            the Two Peas Pod tournament.
           </p>
 
           {/* Team Info Box */}
@@ -151,8 +151,8 @@ export function RegistrationConfirmationEmail({
               balanced teams
             </li>
             <li>
-              <strong>Reverse Coed Rules:</strong> Women&apos;s net height, special
-              restrictions for male players
+              <strong>Reverse Coed Rules:</strong> Women&apos;s net height,
+              special restrictions for male players
             </li>
             <li>
               <strong>Rally Scoring:</strong> Games to 25 points, every serve
@@ -194,8 +194,8 @@ export function RegistrationConfirmationEmail({
             }}
           >
             <p style={{ fontSize: "15px", lineHeight: "1.6", margin: 0 }}>
-              We&apos;ll send you more details closer to the tournament date. If you
-              have any questions, feel free to reply to this email.
+              We&apos;ll send you more details closer to the tournament date. If
+              you have any questions, feel free to reply to this email.
             </p>
             <p
               style={{
@@ -219,7 +219,7 @@ export function RegistrationConfirmationEmail({
           }}
         >
           <p style={{ margin: 0 }}>
-            Bonnie & Clyde Draft 2s Tournament
+            Hewwo Pwincess
             <br />
             All American FieldHouse, Monroeville, PA
           </p>

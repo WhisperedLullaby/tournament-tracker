@@ -13,13 +13,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, DollarSign } from "lucide-react";
 
 // Define the stepper
 const { useStepper } = defineStepper(
   { id: "registration", title: "Start Registration" },
   { id: "pod", title: "Register Pod" },
   { id: "team-name", title: "Name Your Team" },
+  { id: "payment", title: "Payment" },
   { id: "success", title: "Success!" }
 );
 
@@ -76,8 +77,8 @@ export function RegistrationForm() {
       return;
     if (stepper.current.id === "pod" && !validatePod()) return;
 
-    if (stepper.current.id === "team-name") {
-      // Submit the form
+    if (stepper.current.id === "payment") {
+      // Submit the form after payment step
       handleSubmit();
     } else {
       stepper.next();
@@ -219,8 +220,9 @@ export function RegistrationForm() {
               </div>
 
               <p className="text-muted-foreground text-sm">
-                Your pod will be registered as &quot;{formData.player1 || "Player 1"}
-                & {formData.player2 || "Player 2"}&quot;
+                Your pod will be registered as &quot;
+                {formData.player1 || "Player 1"}&{" "}
+                {formData.player2 || "Player 2"}&quot;
               </p>
             </div>
           ),
@@ -242,6 +244,83 @@ export function RegistrationForm() {
               </div>
             </div>
           ),
+          payment: () => (
+            <div className="space-y-4">
+              {/* Price Display */}
+              <div className="bg-accent/20 border-accent flex items-center justify-between rounded-lg border p-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-accent flex h-12 w-12 items-center justify-center rounded-full">
+                    <DollarSign className="text-accent-foreground h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">Registration Fee</p>
+                    <p className="text-muted-foreground text-sm">
+                      Per pod (2 players)
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-3xl font-bold">$20</p>
+                </div>
+              </div>
+
+              {/* Payment Instructions */}
+              <div className="bg-muted/50 space-y-3 rounded-lg p-4">
+                <h4 className="font-semibold">Payment via Venmo</h4>
+                <p className="text-muted-foreground text-sm">
+                  Please send your payment to secure your spot:
+                </p>
+                <div className="bg-background flex items-center justify-between rounded-md border p-3">
+                  <span className="font-mono text-lg">@sduon1</span>
+                </div>
+
+                {/* Venmo Button */}
+                <Button
+                  type="button"
+                  className="w-full"
+                  size="lg"
+                  asChild
+                >
+                  <a
+                    href={`venmo://paycharge?txn=pay&recipients=sduon1&amount=20&note=Two Peas Tournament - ${formData.player1} & ${formData.player2}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => {
+                      // Fallback to web if app doesn't open
+                      setTimeout(() => {
+                        window.open("https://venmo.com/u/sduon1", "_blank");
+                      }, 500);
+                    }}
+                  >
+                    Open Venmo to Pay
+                  </a>
+                </Button>
+
+                <p className="text-muted-foreground text-center text-xs">
+                  Can&apos;t open Venmo? Visit{" "}
+                  <a
+                    href="https://venmo.com/u/sduon1"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
+                  >
+                    venmo.com/u/sduon1
+                  </a>
+                </p>
+              </div>
+
+              {/* Prize Reminder */}
+              <div className="bg-primary/10 border-primary/20 rounded-lg border p-3">
+                <p className="text-sm">
+                  <strong>🏆 Winner gets their $20 back!</strong>
+                </p>
+              </div>
+
+              <p className="text-muted-foreground text-center text-xs">
+                By completing registration, you confirm payment has been sent
+              </p>
+            </div>
+          ),
           success: () => (
             <div className="space-y-4 text-center">
               <div className="bg-primary/10 mx-auto flex h-16 w-16 items-center justify-center rounded-full">
@@ -252,7 +331,7 @@ export function RegistrationForm() {
                   Registration Complete!
                 </h3>
                 <p className="text-muted-foreground mt-2">
-                  Welcome to Bonnie & Clyde Draft 2s
+                  You&apos;re now Two Peas in a Pod!
                 </p>
               </div>
               <div className="bg-muted/50 space-y-2 rounded-lg p-4 text-left text-sm">

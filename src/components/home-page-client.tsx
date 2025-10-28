@@ -16,6 +16,7 @@ import {
 import { Calendar, MapPin, Trophy } from "lucide-react";
 import Link from "next/link";
 import volleyballImage from "@/app/assets/images/image.jpg";
+import { GridPattern } from "@/components/ui/grid-pattern";
 
 type RegistrationStatus = {
   isOpen: boolean;
@@ -140,7 +141,7 @@ export function HomePageClient() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <p className="font-medium">Registration Refund</p>
+                <p className="font-medium">$20 Registration Fee</p>
                 <p className="text-muted-foreground">
                   Winning team gets their registration fee back!
                 </p>
@@ -163,7 +164,7 @@ export function HomePageClient() {
 
             <div className="mx-auto grid max-w-6xl gap-12 md:grid-cols-3">
               {/* Pool Play Card */}
-              <div className="flex-col justify-center">
+              <div className="flex flex-col justify-center">
                 <h2 className="text-4xl font-bold">Pool Play (4 Rounds)</h2>
                 <h3 className="text-muted-foreground text-xl">
                   Mixed pods compete for seeding
@@ -254,8 +255,20 @@ export function HomePageClient() {
       </section>
 
       {/* Rules Section */}
-      <section className="py-16 md:py-24">
-        <div className="container mx-auto px-4">
+      <section className="relative overflow-hidden py-16 md:py-24">
+        {/* Grid pattern background */}
+        <GridPattern
+          width={80}
+          height={80}
+          x={-1}
+          y={-1}
+          className="stroke-primary/10 fill-primary/5"
+        />
+
+        {/* Gradient fade overlay */}
+        <div className="from-background to-background/80 pointer-events-none absolute inset-0 bg-linear-to-t via-transparent" />
+
+        <div className="container relative z-10 mx-auto px-4">
           <div className="mx-auto">
             <h2 className="from-primary via-accent to-primary mb-12 bg-linear-to-r bg-clip-text text-5xl font-bold text-transparent md:text-8xl">
               Tournament Rules
@@ -268,7 +281,8 @@ export function HomePageClient() {
                       Net Height
                     </h4>
                     <p className="text-muted-foreground">
-                      Women&apos;s regulation height (7&apos;4⅛&quot;) - lower net, higher fun!
+                      Women&apos;s regulation height (7&apos;4⅛&quot;) - lower
+                      net, higher fun!
                     </p>
                   </div>
                   <div>

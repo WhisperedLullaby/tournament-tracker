@@ -11,7 +11,7 @@ async function testResend() {
 
   try {
     const result = await resend.emails.send({
-      from: "Bonnie & Clyde <onboarding@resend.dev>",
+      from: "Hewwopwincess Tournament <onboarding@resend.dev>",
       to: ["agnone.anthony@gmail.com"], // Your test email
       subject: "Test Email from Tournament App",
       html: "<p>This is a test email. If you receive this, Resend is working!</p>",
