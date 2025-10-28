@@ -180,8 +180,7 @@ export function RegistrationConfirmationEmail({
             }}
           >
             <li>Court shoes (no black soles)</li>
-            <li>Water bottle</li>
-            <li>Knee pads (optional but recommended)</li>
+            <li>Water bottle (there is a fountain on premises)</li>
             <li>Your A-game!</li>
           </ul>
 
