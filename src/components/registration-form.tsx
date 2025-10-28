@@ -164,7 +164,7 @@ export function RegistrationForm() {
                   </p>
                 )}
                 <p className="text-muted-foreground mt-2 text-xs">
-                  We'll send your confirmation here
+                  We&apos;ll send your confirmation here
                 </p>
               </div>
 
@@ -219,8 +219,8 @@ export function RegistrationForm() {
               </div>
 
               <p className="text-muted-foreground text-sm">
-                Your pod will be registered as "{formData.player1 || "Player 1"}
-                & {formData.player2 || "Player 2"}"
+                Your pod will be registered as &quot;{formData.player1 || "Player 1"}
+                & {formData.player2 || "Player 2"}&quot;
               </p>
             </div>
           ),
@@ -236,8 +236,8 @@ export function RegistrationForm() {
                   onChange={(e) => updateField("teamName", e.target.value)}
                 />
                 <p className="text-muted-foreground mt-2 text-sm">
-                  Give your team a custom name, or leave blank to use "
-                  {formData.player1} & {formData.player2}"
+                  Give your team a custom name, or leave blank to use &quot;
+                  {formData.player1} & {formData.player2}&quot;
                 </p>
               </div>
             </div>

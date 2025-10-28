@@ -13,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Calendar, MapPin, Trophy, Users } from "lucide-react";
+import { Calendar, MapPin, Trophy } from "lucide-react";
 import Link from "next/link";
 import volleyballImage from "@/app/assets/images/image.jpg";
 
@@ -27,7 +27,6 @@ export function HomePageClient() {
   // Start optimistically assuming registration is open
   const [registrationStatus, setRegistrationStatus] =
     useState<RegistrationStatus>({ isOpen: true, podCount: 0, maxPods: 9 });
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function fetchRegistrationStatus() {
@@ -39,8 +38,6 @@ export function HomePageClient() {
         console.error("Error fetching registration status:", error);
         // Default to open if there's an error
         setRegistrationStatus({ isOpen: true, podCount: 0, maxPods: 9 });
-      } finally {
-        setIsLoading(false);
       }
     }
 
@@ -271,7 +268,7 @@ export function HomePageClient() {
                       Net Height
                     </h4>
                     <p className="text-muted-foreground">
-                      Women's regulation height (7'4⅛") - lower net, higher fun!
+                      Women&apos;s regulation height (7&apos;4⅛&quot;) - lower net, higher fun!
                     </p>
                   </div>
                   <div>
