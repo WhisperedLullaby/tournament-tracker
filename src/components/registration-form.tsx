@@ -42,6 +42,7 @@ export function RegistrationForm() {
   const [errors, setErrors] = useState<Partial<FormData>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string>("");
+  const [emailWarning, setEmailWarning] = useState<string | null>(null);
 
   const updateField = (field: keyof FormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -108,6 +109,14 @@ export function RegistrationForm() {
         // Display error message to user
         alert(data.error || "Registration failed. Please try again.");
         return;
+      }
+
+      // Check if email failed to send
+      if (!data.emailSent && data.emailError) {
+        console.error("Email failed to send:", data.emailError);
+        setEmailWarning(
+          "Your registration was successful, but the confirmation email failed to send. Please check your spam folder or contact the organizer."
+        );
       }
 
       // Success! Go to success step
@@ -343,9 +352,19 @@ export function RegistrationForm() {
                   <strong>Email:</strong> {formData.email}
                 </p>
               </div>
-              <Button className="w-full" asChild>
+
+              {/* Email Warning */}
+              {emailWarning && (
+                <div className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-900 rounded-lg border p-3 text-left">
+                  <p className="text-yellow-800 dark:text-yellow-200 text-sm">
+                    ⚠️ {emailWarning}
+                  </p>
+                </div>
+              )}
+
+              {/* <Button className="w-full" asChild>
                 <a href="/standings">View Standings</a>
-              </Button>
+              </Button> */}
             </div>
           ),
         })}

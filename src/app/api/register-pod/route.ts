@@ -5,6 +5,7 @@ import { isRegistrationOpen } from "@/lib/db/queries";
 import { Resend } from "resend";
 import { RegistrationConfirmationEmail } from "@/lib/emails/registration-confirmation";
 import { eq } from "drizzle-orm";
+import React from "react";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -111,25 +112,40 @@ export async function POST(request: NextRequest) {
       .returning();
 
     // Send confirmation email
+    let emailSent = false;
+    let emailError = null;
+
     try {
-      await resend.emails.send({
+      const result = await resend.emails.send({
         from: "Hewwo Pwincess - Two Peas Pod Tournament <tournament@hewwopwincess.com>",
         to: [email],
         subject: "Registration Confirmed - Two Peas Pod Tournament",
-        react: RegistrationConfirmationEmail({
+        react: React.createElement(RegistrationConfirmationEmail, {
           teamName: finalTeamName,
           player1,
           player2,
           email,
         }),
       });
-    } catch (emailError) {
-      // Log email error but don't fail the registration
-      console.error("Failed to send confirmation email:", emailError);
-      // Still return success since the pod was registered
+
+      console.warn("Email sent successfully:", {
+        id: result.data?.id || "unknown",
+        email,
+      });
+      emailSent = true;
+    } catch (error) {
+      // Log detailed email error
+      console.error("Failed to send confirmation email:", error);
+      console.error("Email error details:", {
+        message: error instanceof Error ? error.message : "Unknown error",
+        email,
+        resendApiKeyPresent: !!process.env.RESEND_API_KEY,
+      });
+      emailError = error instanceof Error ? error.message : "Unknown error";
+      // Still continue since the pod was registered
     }
 
-    // Return success response
+    // Return success response with email status
     return NextResponse.json(
       {
         success: true,
@@ -141,7 +157,11 @@ export async function POST(request: NextRequest) {
           player2,
           email,
         },
-        message: "Registration successful! Check your email for confirmation.",
+        emailSent,
+        emailError,
+        message: emailSent
+          ? "Registration successful! Check your email for confirmation."
+          : "Registration successful! However, the confirmation email failed to send. Please check with the organizer.",
       },
       { status: 201 }
     );
