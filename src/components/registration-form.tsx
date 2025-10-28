@@ -254,9 +254,7 @@ export function RegistrationForm() {
                   </div>
                   <div>
                     <p className="font-semibold">Registration Fee</p>
-                    <p className="text-muted-foreground text-sm">
-                      Per pod (2 players)
-                    </p>
+                    <p className="text-muted-foreground text-sm">Per person</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -275,12 +273,7 @@ export function RegistrationForm() {
                 </div>
 
                 {/* Venmo Button */}
-                <Button
-                  type="button"
-                  className="w-full"
-                  size="lg"
-                  asChild
-                >
+                <Button type="button" className="w-full" size="lg" asChild>
                   <a
                     href={`venmo://paycharge?txn=pay&recipients=sduon1&amount=20&note=Two Peas Tournament - ${formData.player1} & ${formData.player2}`}
                     target="_blank"
