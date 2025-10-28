@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Calendar, MapPin, Trophy, Users } from "lucide-react";
 import Link from "next/link";
+import volleyballImage from "@/app/assets/images/image.jpg";
 
 type RegistrationStatus = {
   isOpen: boolean;
@@ -57,9 +58,9 @@ export function HomePageClient() {
       {/* Hero Section with Registration Form */}
       <HeroGeometric
         badge={badgeText}
-        title1="Bonnie & Clyde"
-        title2="Draft 2s Tournament"
-        description="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+        title1="Two Peas"
+        title2="Pod Tournament"
+        description="Inviting volleyball players of all skill levels to connect, play, and compete!"
         rightContent={
           registrationStatus.isOpen ? (
             <RegistrationForm />
@@ -88,11 +89,11 @@ export function HomePageClient() {
       {/* Tournament Info Section */}
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4">
-          <h2 className="text-primary mb-12 text-5xl font-bold sm:text-7xl">
-            Tournament Information
+          <h2 className="from-primary via-accent to-primary mb-12 bg-linear-to-r bg-clip-text text-5xl font-bold text-transparent md:text-8xl">
+            Tournament Details
           </h2>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-2 lg:grid-cols-3">
             {/* Date & Time Card */}
             <Card>
               <CardHeader>
@@ -156,22 +157,22 @@ export function HomePageClient() {
       </section>
 
       {/* Format Section */}
-      <section className="bg-muted/30 py-16 md:py-24">
+      <section className="bg-muted/40 py-16 md:py-24">
         <div className="container mx-auto px-4">
           <div className="mx-auto">
-            <h2 className="text-primary mb-8 text-right text-5xl font-bold sm:text-7xl">
+            <h2 className="from-primary via-accent to-primary mb-12 bg-linear-to-r bg-clip-text text-5xl font-bold text-transparent md:text-8xl">
               Tournament Format
             </h2>
 
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="mx-auto grid max-w-6xl gap-12 md:grid-cols-3">
               {/* Pool Play Card */}
+              <div className="flex-col justify-center">
+                <h2 className="text-4xl font-bold">Pool Play (4 Rounds)</h2>
+                <h3 className="text-muted-foreground text-xl">
+                  Mixed pods compete for seeding
+                </h3>
+              </div>
               <Card>
-                <CardHeader>
-                  <CardTitle>Pool Play (4 Rounds)</CardTitle>
-                  <CardDescription>
-                    Mixed pods compete for seeding
-                  </CardDescription>
-                </CardHeader>
                 <CardContent className="space-y-3">
                   <div>
                     <p className="font-medium">9 Pods of 2 Players</p>
@@ -193,13 +194,42 @@ export function HomePageClient() {
                   </div>
                 </CardContent>
               </Card>
-
+              <Card className="relative min-h-[200px] overflow-hidden">
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    backgroundColor:
+                      "color-mix(in oklab, var(--muted) 40%, transparent)",
+                    backgroundImage: `url(${volleyballImage.src})`,
+                    backgroundSize: "259%",
+                    backgroundPosition: "calc(100% + 110px) -86px",
+                    backgroundBlendMode: "overlay",
+                  }}
+                />
+              </Card>
+            </div>
+            <div className="mx-auto mt-12 grid max-w-6xl gap-12 md:grid-cols-3">
+              <Card className="relative hidden min-h-[200px] overflow-hidden md:block">
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    backgroundColor:
+                      "color-mix(in oklab, var(--muted) 40%, transparent)",
+                    backgroundImage: `url(${volleyballImage.src})`,
+                    backgroundSize: "259%",
+                    backgroundPosition: "0 -291px",
+                    backgroundBlendMode: "overlay",
+                  }}
+                />
+              </Card>
               {/* Bracket Play Card */}
+              <div className="flex flex-col justify-center text-right">
+                <h2 className="text-4xl font-bold">Bracket Play</h2>
+                <h3 className="text-muted-foreground text-xl">
+                  Double elimination showdown
+                </h3>
+              </div>
               <Card>
-                <CardHeader>
-                  <CardTitle>Bracket Play</CardTitle>
-                  <CardDescription>Double elimination showdown</CardDescription>
-                </CardHeader>
                 <CardContent className="space-y-3">
                   <div>
                     <p className="font-medium">3 Teams of 6 Players</p>
@@ -230,48 +260,47 @@ export function HomePageClient() {
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4">
           <div className="mx-auto">
-            <h2 className="text-primary mb-12 text-5xl font-bold sm:text-7xl">
+            <h2 className="from-primary via-accent to-primary mb-12 bg-linear-to-r bg-clip-text text-5xl font-bold text-transparent md:text-8xl">
               Tournament Rules
             </h2>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-2xl">
-                  <Users className="text-accent h-6 w-6" />
-                  Reverse Coed Rules
-                </CardTitle>
-                <CardDescription>
+            <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-7">
+              <Card className="col-span-full md:col-span-3">
+                <CardContent className="space-y-4">
+                  <div>
+                    <h4 className="text-primary mb-2 font-semibold">
+                      Net Height
+                    </h4>
+                    <p className="text-muted-foreground">
+                      Women's regulation height (7'4⅛") - lower net, higher fun!
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="text-primary mb-2 font-semibold">
+                      Male Player Restrictions
+                    </h4>
+                    <ul className="text-muted-foreground list-inside list-disc space-y-1">
+                      <li>Cannot attack from front row above net height</li>
+                      <li>Cannot block at the net</li>
+                      <li>Can attack from behind the 10-foot line</li>
+                      <li>Can jump serve</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="text-primary mb-2 font-semibold">Scoring</h4>
+                    <p className="text-muted-foreground">
+                      Rally scoring to 21 points.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+              <div className="col-span-full flex flex-col justify-center text-right md:col-span-4">
+                <h2 className="text-4xl font-bold">Reverse Coed Rules</h2>
+                <h3 className="text-muted-foreground text-xl">
                   No rotation required. Only rotate servers (everyone must
                   serve). Can rotate if preferred, but revco rules apply.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h4 className="text-primary mb-2 font-semibold">
-                    Net Height
-                  </h4>
-                  <p className="text-muted-foreground">
-                    Women's regulation height (7'4⅛") - lower net, higher fun!
-                  </p>
-                </div>
-                <div>
-                  <h4 className="text-primary mb-2 font-semibold">
-                    Male Player Restrictions
-                  </h4>
-                  <ul className="text-muted-foreground list-inside list-disc space-y-1">
-                    <li>Cannot attack from front row above net height</li>
-                    <li>Cannot block at the net</li>
-                    <li>Can attack from behind the 10-foot line</li>
-                    <li>Can jump serve</li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="text-primary mb-2 font-semibold">Scoring</h4>
-                  <p className="text-muted-foreground">
-                    Rally scoring to 21 points.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+                </h3>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -286,19 +315,6 @@ export function HomePageClient() {
             Grab your partner and register your pod for an unforgettable day of
             volleyball!
           </p>
-          <Button
-            size="lg"
-            variant="secondary"
-            className="text-base"
-            asChild
-            disabled={!registrationStatus.isOpen}
-          >
-            <Link href={registrationStatus.isOpen ? "#" : "/standings"}>
-              {registrationStatus.isOpen
-                ? "Register Now"
-                : "View Registered Teams"}
-            </Link>
-          </Button>
         </div>
       </section>
 

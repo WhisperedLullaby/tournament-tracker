@@ -6,7 +6,7 @@ export function Footer() {
           {/* Tournament Info */}
           <div>
             <h3 className="text-primary mb-2 font-semibold">
-              Bonnie & Clyde Draft 2s
+              Two Peas Pod Tournament
             </h3>
             <p className="text-muted-foreground text-sm">
               A reverse coed volleyball tournament
@@ -55,8 +55,8 @@ export function Footer() {
 
         <div className="text-muted-foreground mt-8 border-t pt-8 text-center text-sm">
           <p>
-            &copy; {new Date().getFullYear()} Bonnie & Clyde Draft 2s. All
-            rights reserved.
+            &copy; {new Date().getFullYear()} Hewwo Pwincess. All rights
+            reserved.
           </p>
         </div>
       </div>

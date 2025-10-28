@@ -85,7 +85,7 @@ export function HeroGeometric({
   badge = "Registration Open",
   title1 = "Lorem Ipsum Dolor",
   title2 = "Sit Amet Consectetur",
-  description = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+  description = "Inviting volleyball players of all skill levels to connect, play, and compete!",
   className,
   rightContent,
 }: HeroGeometricProps) {
@@ -181,11 +181,11 @@ export function HeroGeometric({
             animate="visible"
           >
             <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-5xl md:mb-8 md:text-6xl lg:text-7xl">
-              <span className="from-foreground to-foreground/80 bg-linear-to-b bg-clip-text text-transparent">
+              <span className="from-foreground to-foreground/80 bg-linear-to-b bg-clip-text text-transparent lg:text-8xl">
                 {title1}
               </span>
               <br />
-              <span className="from-primary via-accent to-primary bg-linear-to-r bg-clip-text text-transparent">
+              <span className="from-primary via-accent to-primary bg-linear-to-r bg-clip-text text-transparent lg:text-6xl">
                 {title2}
               </span>
             </h1>

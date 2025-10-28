@@ -26,7 +26,7 @@ export function RegistrationConfirmationEmail({
         {/* Header */}
         <div
           style={{
-            backgroundColor: "#0F456E",
+            backgroundColor: "#727D73",
             color: "#fff",
             padding: "30px 20px",
             textAlign: "center",
@@ -61,18 +61,18 @@ export function RegistrationConfirmationEmail({
           {/* Team Info Box */}
           <div
             style={{
-              backgroundColor: "#EAE6D8",
+              backgroundColor: "#F0F0D7",
               padding: "20px",
               borderRadius: "8px",
               margin: "20px 0",
-              borderLeft: "4px solid #D1AD74",
+              borderLeft: "4px solid #AAB99A",
             }}
           >
             <h2
               style={{
                 margin: "0 0 15px 0",
                 fontSize: "20px",
-                color: "#0F456E",
+                color: "#727D73",
               }}
             >
               Your Team
@@ -95,7 +95,7 @@ export function RegistrationConfirmationEmail({
           <h2
             style={{
               fontSize: "20px",
-              color: "#0F456E",
+              color: "#727D73",
               marginTop: "30px",
               marginBottom: "15px",
             }}
@@ -127,7 +127,7 @@ export function RegistrationConfirmationEmail({
           <h2
             style={{
               fontSize: "20px",
-              color: "#0F456E",
+              color: "#727D73",
               marginTop: "30px",
               marginBottom: "15px",
             }}
@@ -164,7 +164,7 @@ export function RegistrationConfirmationEmail({
           <h2
             style={{
               fontSize: "20px",
-              color: "#0F456E",
+              color: "#727D73",
               marginTop: "30px",
               marginBottom: "15px",
             }}

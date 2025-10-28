@@ -16,13 +16,12 @@ export function Navigation() {
   ];
 
   return (
-    <nav className="bg-card supports-[backdrop-filter]:bg-card/90 sticky top-0 z-50 w-full border-b backdrop-blur">
+    <nav className="bg-card supports-backdrop-filter:bg-card/90 sticky top-0 z-50 w-full border-b backdrop-blur">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* Logo/Brand */}
         <Link href="/" className="text-primary text-xl font-bold">
-          Bonnie & Clyde
-        </Link>
-
+          Hewwo Pwincess
+        </Link>{" "}
         {/* Desktop Navigation */}
         <div className="hidden items-center gap-6 md:flex">
           {navItems.map((item) => (
@@ -35,7 +34,6 @@ export function Navigation() {
             </Link>
           ))}
         </div>
-
         {/* Mobile Menu Button */}
         <button
           className="md:hidden"

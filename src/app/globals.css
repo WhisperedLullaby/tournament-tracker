@@ -41,76 +41,85 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --text-8xl: 6rem;
+  --text-8xl--line-height: 1;
+  --text-9xl: 8rem;
+  --text-9xl--line-height: 1;
+  --text-10xl: 10rem;
+  --text-10xl--line-height: 1;
+  --text-11xl: 12rem;
+  --text-11xl--line-height: 1;
 }
 
 :root {
   --radius: 0.625rem;
   /* Bonnie & Clyde Tournament Color Palette */
-  --background: #eae6d8; /* Cream background */
-  --foreground: #3c534d; /* Dark gray-green text */
+  --background: #f0f0d7; /* Lightest cream */
+  --foreground: #4a5651; /* Darker green-gray for text */
   --card: #ffffff;
-  --card-foreground: #3c534d;
+  --card-foreground: #4a5651;
   --popover: #ffffff;
-  --popover-foreground: #3c534d;
-  --primary: #0f456e; /* Deep blue */
+  --popover-foreground: #4a5651;
+  --primary: #727d73; /* Dark green-gray */
   --primary-foreground: #ffffff;
-  --secondary: #a1a291; /* Sage gray */
-  --secondary-foreground: #ffffff;
-  --muted: #c7cdd8; /* Light blue-gray */
-  --muted-foreground: #3c534d;
-  --accent: #d1ad74; /* Gold */
-  --accent-foreground: #0f456e;
+  --secondary: #aab99a; /* Medium sage green */
+  --secondary-foreground: #4a5651;
+  --muted: #d0ddd0; /* Light green-gray */
+  --muted-foreground: #5a6660;
+  --accent: #aab99a; /* Medium sage green */
+  --accent-foreground: #4a5651;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: #c7cdd8;
-  --input: #c7cdd8;
-  --ring: #0f456e;
-  --chart-1: #0f456e;
-  --chart-2: #a1a291;
-  --chart-3: #d1ad74;
-  --chart-4: #c7cdd8;
-  --chart-5: #eae6d8;
+  --border: #d0ddd0;
+  --input: #d0ddd0;
+  --ring: #727d73;
+  --chart-1: #727d73;
+  --chart-2: #aab99a;
+  --chart-3: #d0ddd0;
+  --chart-4: #f0f0d7;
+  --chart-5: #e5e5d0;
   --sidebar: #ffffff;
-  --sidebar-foreground: #3c534d;
-  --sidebar-primary: #0f456e;
+  --sidebar-foreground: #4a5651;
+  --sidebar-primary: #727d73;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #d1ad74;
-  --sidebar-accent-foreground: #0f456e;
-  --sidebar-border: #c7cdd8;
-  --sidebar-ring: #0f456e;
+  --sidebar-accent: #aab99a;
+  --sidebar-accent-foreground: #4a5651;
+  --sidebar-border: #d0ddd0;
+  --sidebar-ring: #727d73;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  /* Dark mode using the green color palette */
+  --background: #2a3330; /* Very dark green-gray */
+  --foreground: #e8ede8; /* Light cream-green */
+  --card: #3a4542; /* Dark card background */
+  --card-foreground: #e8ede8;
+  --popover: #3a4542;
+  --popover-foreground: #e8ede8;
+  --primary: #aab99a; /* Medium sage green (lighter for dark mode) */
+  --primary-foreground: #2a3330;
+  --secondary: #727d73; /* Dark green-gray */
+  --secondary-foreground: #e8ede8;
+  --muted: #4a5651; /* Muted dark green */
+  --muted-foreground: #b8c5b8;
+  --accent: #aab99a; /* Medium sage green */
+  --accent-foreground: #2a3330;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --border: #4a5651;
+  --input: #4a5651;
+  --ring: #aab99a;
+  --chart-1: #aab99a;
+  --chart-2: #727d73;
+  --chart-3: #d0ddd0;
+  --chart-4: #4a5651;
+  --chart-5: #3a4542;
+  --sidebar: #3a4542;
+  --sidebar-foreground: #e8ede8;
+  --sidebar-primary: #aab99a;
+  --sidebar-primary-foreground: #2a3330;
+  --sidebar-accent: #727d73;
+  --sidebar-accent-foreground: #e8ede8;
+  --sidebar-border: #4a5651;
+  --sidebar-ring: #aab99a;
 }
 
 @layer base {

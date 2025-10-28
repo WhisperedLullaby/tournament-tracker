@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
     // Send confirmation email
     try {
       await resend.emails.send({
-        from: "Bonnie & Clyde Tournament <onboarding@resend.dev>", // Update this when you verify your domain
+        from: "Bonnie & Clyde Tournament <tournament@hewwopwincess.com>",
         to: [email],
         subject: "Registration Confirmed - Bonnie & Clyde Draft 2s",
         react: RegistrationConfirmationEmail({
