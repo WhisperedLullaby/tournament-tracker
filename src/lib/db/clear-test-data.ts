@@ -20,11 +20,11 @@ async function clearTestData() {
 
   try {
     // Clear pool matches
-    const deletedMatches = await db.delete(poolMatches);
+    await db.delete(poolMatches);
     console.log("✓ Cleared pool matches");
 
     // Clear pool standings
-    const deletedStandings = await db.delete(poolStandings);
+    await db.delete(poolStandings);
     console.log("✓ Cleared pool standings");
 
     console.log("✅ Test data cleared successfully!");
