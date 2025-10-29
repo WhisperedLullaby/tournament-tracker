@@ -25,28 +25,34 @@ export async function isRegistrationOpen(): Promise<boolean> {
 
 /**
  * Get pool standings with pod information and calculated point differential
- * Returns standings sorted by point differential (descending)
+ * Returns standings sorted by:
+ * 1. Point differential (descending)
+ * 2. Points for (descending) - tie-breaker
+ * 3. Wins (descending) - tie-breaker
+ * Shows all registered pods, even if they haven't played yet
  */
 export async function getPoolStandings() {
   try {
     const standings = await db
       .select({
-        podId: poolStandings.podId,
+        podId: pods.id,
         teamName: pods.teamName,
         playerNames: pods.name,
         player1: pods.player1,
         player2: pods.player2,
-        wins: poolStandings.wins,
-        losses: poolStandings.losses,
-        pointsFor: poolStandings.pointsFor,
-        pointsAgainst: poolStandings.pointsAgainst,
-        pointDifferential: sql<number>`${poolStandings.pointsFor} - ${poolStandings.pointsAgainst}`,
-        gamesPlayed: sql<number>`${poolStandings.wins} + ${poolStandings.losses}`,
+        wins: sql<number>`COALESCE(${poolStandings.wins}, 0)`,
+        losses: sql<number>`COALESCE(${poolStandings.losses}, 0)`,
+        pointsFor: sql<number>`COALESCE(${poolStandings.pointsFor}, 0)`,
+        pointsAgainst: sql<number>`COALESCE(${poolStandings.pointsAgainst}, 0)`,
+        pointDifferential: sql<number>`COALESCE(${poolStandings.pointsFor}, 0) - COALESCE(${poolStandings.pointsAgainst}, 0)`,
+        gamesPlayed: sql<number>`COALESCE(${poolStandings.wins}, 0) + COALESCE(${poolStandings.losses}, 0)`,
       })
-      .from(poolStandings)
-      .innerJoin(pods, eq(poolStandings.podId, pods.id))
+      .from(pods)
+      .leftJoin(poolStandings, eq(pods.id, poolStandings.podId))
       .orderBy(
-        desc(sql`${poolStandings.pointsFor} - ${poolStandings.pointsAgainst}`)
+        desc(sql`COALESCE(${poolStandings.pointsFor}, 0) - COALESCE(${poolStandings.pointsAgainst}, 0)`),
+        desc(sql`COALESCE(${poolStandings.pointsFor}, 0)`),
+        desc(sql`COALESCE(${poolStandings.wins}, 0)`)
       );
 
     return standings;
@@ -58,7 +64,7 @@ export async function getPoolStandings() {
 
 /**
  * Get completed pool matches for the game log
- * Returns matches with team names, ordered by most recent first
+ * Returns matches with pod IDs, ordered by most recent first
  */
 export async function getPoolMatchesLog() {
   try {
@@ -70,48 +76,13 @@ export async function getPoolMatchesLog() {
         teamBPods: poolMatches.teamBPods,
         teamAScore: poolMatches.teamAScore,
         teamBScore: poolMatches.teamBScore,
-        status: poolMatches.status,
         updatedAt: poolMatches.updatedAt,
       })
       .from(poolMatches)
       .where(eq(poolMatches.status, "completed"))
       .orderBy(desc(poolMatches.updatedAt));
 
-    // Fetch all pods to build team names
-    const allPods = await db.select().from(pods);
-    const podMap = new Map(allPods.map((p) => [p.id, p]));
-
-    // Enrich matches with team names
-    const enrichedMatches = matches.map((match) => {
-      const teamAPodIds = match.teamAPods as number[];
-      const teamBPodIds = match.teamBPods as number[];
-
-      const teamANames = teamAPodIds
-        .map((id) => {
-          const pod = podMap.get(id);
-          return pod?.teamName || pod?.name || `Pod ${id}`;
-        })
-        .join(" & ");
-
-      const teamBNames = teamBPodIds
-        .map((id) => {
-          const pod = podMap.get(id);
-          return pod?.teamName || pod?.name || `Pod ${id}`;
-        })
-        .join(" & ");
-
-      return {
-        id: match.id,
-        roundNumber: match.roundNumber,
-        teamAName: teamANames,
-        teamBName: teamBNames,
-        teamAScore: match.teamAScore,
-        teamBScore: match.teamBScore,
-        updatedAt: match.updatedAt,
-      };
-    });
-
-    return enrichedMatches;
+    return matches;
   } catch (error) {
     console.error("Error fetching pool matches log:", error);
     return [];
