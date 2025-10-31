@@ -272,7 +272,7 @@ export default function ScorekeeperPage() {
       </button>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-4">
+      <div className="flex-1 flex flex-col items-center justify-center px-2 sm:px-4 py-2 sm:py-4">
         {!gameToDisplay ? (
           <div className="text-center text-white">
             <h1 className="text-3xl font-bold mb-3">No Games Available</h1>
@@ -281,25 +281,25 @@ export default function ScorekeeperPage() {
             </p>
           </div>
         ) : (
-          <div className="w-full max-w-5xl flex flex-col items-center gap-3">
+          <div className="w-full max-w-5xl flex flex-col items-center gap-2 sm:gap-3">
             {/* Game Info */}
             <div className="text-center text-white">
-              <h1 className="text-2xl font-bold mb-1">
+              <h1 className="text-xl sm:text-2xl font-bold mb-1">
                 Game {gameToDisplay.gameNumber}
               </h1>
-              <p className="text-sm text-white/60">
+              <p className="text-xs sm:text-sm text-white/60">
                 {gameToDisplay.scheduledTime || "TBD"} • Court{" "}
                 {gameToDisplay.courtNumber}
               </p>
               {gameToDisplay.status === "pending" && (
-                <p className="text-yellow-400/80 font-medium mt-1 text-sm">
+                <p className="text-yellow-400/80 font-medium mt-1 text-xs sm:text-sm">
                   Game Not Started
                 </p>
               )}
             </div>
 
             {/* Score Displays */}
-            <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl">
+            <div className="w-full grid grid-cols-2 gap-4 sm:gap-8 max-w-4xl">
               {/* Team A */}
               <ScoreDisplay
                 teamName={formatTeamNames(gameToDisplay.teamAPods as number[])}
@@ -346,15 +346,15 @@ export default function ScorekeeperPage() {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-3 mt-2">
+            <div className="flex gap-3 mt-1 sm:mt-2">
               {gameToDisplay.status === "pending" && (
                 <Button
                   onClick={handleStartGame}
                   disabled={updating}
                   size="lg"
-                  className="bg-[#6b8a6b] hover:bg-[#5a7a5a] text-white text-lg px-6 py-5"
+                  className="bg-[#6b8a6b] hover:bg-[#5a7a5a] text-white text-base sm:text-lg px-4 sm:px-6 py-4 sm:py-5"
                 >
-                  <Play className="w-5 h-5 mr-2" />
+                  <Play className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
                   Start Match
                 </Button>
               )}
@@ -364,9 +364,9 @@ export default function ScorekeeperPage() {
                   onClick={handleCompleteGame}
                   disabled={updating}
                   size="lg"
-                  className="bg-primary hover:bg-primary/90 text-white text-lg px-6 py-5"
+                  className="bg-primary hover:bg-primary/90 text-white text-base sm:text-lg px-4 sm:px-6 py-4 sm:py-5"
                 >
-                  <CheckCircle className="w-5 h-5 mr-2" />
+                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
                   End Match
                 </Button>
               )}

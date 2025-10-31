@@ -34,53 +34,53 @@ export function ScoreDisplay({
   return (
     <Card className={`${colorStyles} border-2 overflow-hidden shadow-lg`}>
       {/* Team Name Header */}
-      <div className="px-4 py-2 bg-black/10 border-b-2 border-black/20">
-        <h2 className="text-lg font-bold text-center tracking-wide uppercase">
+      <div className="px-2 sm:px-4 py-1.5 sm:py-2 bg-black/10 border-b-2 border-black/20">
+        <h2 className="text-sm sm:text-base lg:text-lg font-bold text-center tracking-wide uppercase truncate">
           {teamName}
         </h2>
       </div>
 
       {/* Score Display Area */}
-      <div className="flex flex-col h-[280px] select-none">
-        {/* Top Half - Tap to Increment */}
-        <button
-          onClick={onIncrement}
-          disabled={disabled}
-          className={`flex-1 flex items-center justify-center transition-all active:scale-95 ${
-            disabled ? "opacity-50 cursor-not-allowed" : "active:bg-white/10"
-          }`}
-          aria-label="Increment score"
-        >
-          {/* Large Score Display */}
+      <div className="relative h-[200px] sm:h-[280px] select-none">
+        {/* Full Score Display - Centered */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div
-            className="text-[120px] font-mono font-bold leading-none"
-            style={{ letterSpacing: "0.08em" }}
+            className={`text-[140px] sm:text-[200px] font-mono font-bold leading-none ${
+              disabled ? "opacity-50" : ""
+            }`}
+            style={{ letterSpacing: "0.05em" }}
           >
             {score}
           </div>
-        </button>
+        </div>
 
-        {/* Divider Line */}
-        <div className="h-px bg-black/20" />
+        {/* Horizontal Line - Visual Separator */}
+        <div className="absolute top-1/2 left-0 right-0 h-px bg-black/20 pointer-events-none" />
 
-        {/* Bottom Half - Tap to Decrement */}
+        {/* Top Half - Tap to Increment (Invisible Button) */}
+        <button
+          onClick={onIncrement}
+          disabled={disabled}
+          className={`absolute top-0 left-0 right-0 h-1/2 ${
+            disabled ? "cursor-not-allowed" : "cursor-pointer"
+          }`}
+          aria-label="Increment score"
+        />
+
+        {/* Bottom Half - Tap to Decrement (Invisible Button) */}
         <button
           onClick={onDecrement}
           disabled={disabled || score === 0}
-          className={`flex-1 flex items-center justify-center transition-all active:scale-95 ${
-            disabled || score === 0
-              ? "opacity-30 cursor-not-allowed"
-              : "active:bg-black/10"
+          className={`absolute bottom-0 left-0 right-0 h-1/2 ${
+            disabled || score === 0 ? "cursor-not-allowed" : "cursor-pointer"
           }`}
           aria-label="Decrement score"
-        >
-          <span className="text-4xl font-bold opacity-50">−</span>
-        </button>
+        />
       </div>
 
       {/* Touch Instructions */}
-      <div className="px-3 py-1.5 bg-black/10 border-t-2 border-black/20">
-        <p className="text-center text-xs font-medium opacity-75">
+      <div className="px-2 sm:px-3 py-1 sm:py-1.5 bg-black/10 border-t-2 border-black/20">
+        <p className="text-center text-[10px] sm:text-xs font-medium opacity-75">
           Tap top to add • Tap bottom to subtract
         </p>
       </div>
