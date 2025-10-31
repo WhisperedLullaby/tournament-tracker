@@ -13,29 +13,49 @@ export default function ScorekeeperPage() {
   const [currentGame, setCurrentGame] = useState<PoolMatch | null>(null);
   const [nextGame, setNextGame] = useState<PoolMatch | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
   const [pods, setPods] = useState<Map<number, string>>(new Map());
 
   // Fetch initial data
   const fetchData = useCallback(async () => {
     try {
+      console.log("Fetching scorekeeper data...");
+
       // Fetch current in-progress game
-      const { data: inProgressGames } = await supabase
+      const { data: inProgressGames, error: inProgressError } = await supabase
         .from("pool_matches")
         .select("*")
         .eq("status", "in_progress")
         .order("game_number", { ascending: true });
 
+      if (inProgressError) {
+        console.error("Error fetching in-progress games:", inProgressError);
+        throw inProgressError;
+      }
+
       // Fetch next pending game
-      const { data: pendingGames } = await supabase
+      const { data: pendingGames, error: pendingError } = await supabase
         .from("pool_matches")
         .select("*")
         .eq("status", "pending")
         .order("game_number", { ascending: true })
         .limit(1);
 
+      if (pendingError) {
+        console.error("Error fetching pending games:", pendingError);
+        throw pendingError;
+      }
+
       // Fetch all pods for team names
-      const { data: podsData } = await supabase.from("pods").select("*");
+      const { data: podsData, error: podsError } = await supabase
+        .from("pods")
+        .select("*");
+
+      if (podsError) {
+        console.error("Error fetching pods:", podsError);
+        throw podsError;
+      }
 
       if (podsData) {
         const podMap = new Map<number, string>();
@@ -56,15 +76,30 @@ export default function ScorekeeperPage() {
           : null
       );
       setLoading(false);
+      console.log("Data loaded successfully");
     } catch (error) {
       console.error("Error fetching data:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to load game data"
+      );
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    // Set a timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      if (loading) {
+        console.error("Loading timeout - forcing completion");
+        setLoading(false);
+        setError("Loading timed out. Please check your connection and retry.");
+      }
+    }, 10000); // 10 second timeout
+
     fetchData();
-  }, [fetchData]);
+
+    return () => clearTimeout(timeout);
+  }, [fetchData, loading]);
 
   // Subscribe to real-time updates
   useEffect(() => {
@@ -205,8 +240,20 @@ export default function ScorekeeperPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
+      <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 flex flex-col items-center justify-center gap-4 p-4">
         <div className="text-white text-2xl">Loading...</div>
+        {error && (
+          <div className="text-red-400 text-center max-w-md">
+            <p className="font-semibold mb-2">Error:</p>
+            <p className="text-sm">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        )}
       </div>
     );
   }
