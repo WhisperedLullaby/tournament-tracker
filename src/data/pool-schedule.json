@@ -1,0 +1,57 @@
+{
+  "notes": [
+    "NOTE: Play times are estimates. If we are ahead of schedule, the next game is allowed to start earlier than its scheduled time!",
+    "Check-in & warm-up begins at 9:30AM",
+    "Pool play - Random teams, games to 21, win by 2. Each pod plays 4 sets."
+  ],
+  "poolGames": [
+    {
+      "gameNumber": 1,
+      "scheduledTime": "10:00 AM",
+      "teamAPods": [4, 5, 6],
+      "teamBPods": [7, 8, 9],
+      "sittingPods": [1, 2, 3],
+      "courtNumber": 1
+    },
+    {
+      "gameNumber": 2,
+      "scheduledTime": "10:20 AM",
+      "teamAPods": [1, 2, 3],
+      "teamBPods": [4, 7, 9],
+      "sittingPods": [5, 6, 8],
+      "courtNumber": 1
+    },
+    {
+      "gameNumber": 3,
+      "scheduledTime": "10:40 AM",
+      "teamAPods": [3, 6, 8],
+      "teamBPods": [1, 2, 5],
+      "sittingPods": [4, 7, 9],
+      "courtNumber": 1
+    },
+    {
+      "gameNumber": 4,
+      "scheduledTime": "11:00 AM",
+      "teamAPods": [3, 4, 9],
+      "teamBPods": [1, 6, 7],
+      "sittingPods": [2, 5, 8],
+      "courtNumber": 1
+    },
+    {
+      "gameNumber": 5,
+      "scheduledTime": "11:20 AM",
+      "teamAPods": [2, 4, 8],
+      "teamBPods": [3, 5, 9],
+      "sittingPods": [1, 6, 7],
+      "courtNumber": 1
+    },
+    {
+      "gameNumber": 6,
+      "scheduledTime": "11:40 AM",
+      "teamAPods": [1, 5, 8],
+      "teamBPods": [2, 6, 7],
+      "sittingPods": [3, 4, 9],
+      "courtNumber": 1
+    }
+  ]
+}

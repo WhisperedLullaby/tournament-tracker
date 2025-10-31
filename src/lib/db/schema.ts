@@ -6,6 +6,7 @@ import {
   timestamp,
   pgEnum,
   json,
+  varchar,
 } from "drizzle-orm/pg-core";
 
 // Enums for match status
@@ -35,9 +36,13 @@ export const pods = pgTable("pods", {
 // Pool matches table - stores pool play games (4 rounds)
 export const poolMatches = pgTable("pool_matches", {
   id: serial("id").primaryKey(),
+  gameNumber: integer("game_number").notNull(), // 1-6 for pool play
   roundNumber: integer("round_number").notNull(), // 1-4
+  scheduledTime: varchar("scheduled_time", { length: 20 }), // "10:00 AM"
+  courtNumber: integer("court_number").default(1).notNull(), // Court assignment
   teamAPods: json("team_a_pods").$type<number[]>().notNull(), // Array of pod IDs
   teamBPods: json("team_b_pods").$type<number[]>().notNull(), // Array of pod IDs
+  sittingPods: json("sitting_pods").$type<number[]>().notNull(), // Array of pod IDs sitting out
   teamAScore: integer("team_a_score").default(0).notNull(),
   teamBScore: integer("team_b_score").default(0).notNull(),
   status: matchStatusEnum("status").default("pending").notNull(),

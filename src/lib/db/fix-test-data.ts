@@ -28,9 +28,13 @@ async function fixTestData() {
     const match = await db
       .insert(poolMatches)
       .values({
+        gameNumber: 1,
         roundNumber: 1,
+        scheduledTime: "10:00 AM",
+        courtNumber: 1,
         teamAPods: [27, 28, 29], // Kelly/Donovan, Tina/Felix, Ground Control
         teamBPods: [30, 31, 32], // Prolapsed Cornhole, Jessie/Brian, Ryan/Tiffany
+        sittingPods: [33, 34, 35],
         teamAScore: 25,
         teamBScore: 23,
         status: "completed",

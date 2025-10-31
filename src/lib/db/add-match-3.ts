@@ -23,9 +23,13 @@ async function addMatch3() {
     const match = await db
       .insert(poolMatches)
       .values({
+        gameNumber: 3,
         roundNumber: 3,
+        scheduledTime: "10:40 AM",
+        courtNumber: 1,
         teamAPods: [33, 28, 35], // Pip's penguins, Tina/Felix, Fairly Spiked
         teamBPods: [32, 27, 34], // TBD, Kelly/Donovan, Dana/Hayden
+        sittingPods: [29, 30, 31],
         teamAScore: 21,
         teamBScore: 25,
         status: "completed",

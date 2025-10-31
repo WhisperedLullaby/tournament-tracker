@@ -1,0 +1,142 @@
+query,rolname,calls,mean_time,min_time,max_time,total_time,rows_read,cache_hit_rate,prop_total_time,index_advisor_result
+"select * from realtime.list_changes($1, $2, $3, $4)",supabase_admin,111,4.40114140540541,3.085895,14.633634,488.526696,1,100.0000000000000000,97.86147699081587,null
+"with sub_tables as (
+        select
+        rr.entity
+        from
+        pg_publication_tables pub,
+        lateral (
+        select
+        format($7, pub.schemaname, pub.tablename)::regclass entity
+        ) rr
+        where
+        pub.pubname = $1
+        and pub.schemaname like (case $2 when $8 then $9 else $2 end)
+        and pub.tablename like (case $3 when $10 then $11 else $3 end)
+     )
+     insert into realtime.subscription as x(
+        subscription_id,
+        entity,
+        filters,
+        claims
+      )
+      select
+        $4::text::uuid,
+        sub_tables.entity,
+        $6,
+        $5
+      from
+        sub_tables
+        on conflict
+        (subscription_id, entity, filters)
+        do update set
+        claims = excluded.claims,
+        created_at = now()
+      returning
+         id",supabase_admin,2,1.859769,1.21697,2.502568,3.719538,2,100.0000000000000000,0.7450963998157131,null
+"SELECT
+  e.name,
+  n.nspname AS schema,
+  e.default_version,
+  x.extversion AS installed_version,
+  e.comment
+FROM
+  pg_available_extensions() e(name, default_version, comment)
+  LEFT JOIN pg_extension x ON e.name = x.extname
+  LEFT JOIN pg_namespace n ON x.extnamespace = n.oid
+WHERE
+  $1",postgres,1,2.382518,2.382518,2.382518,2.382518,76,100.0000000000000000,0.4772650754733876,null
+"-- reports-query-performance-cache-and-index-hit-rate
+select
+    $1 as name,
+    (sum(idx_blks_hit)) / nullif(sum(idx_blks_hit + idx_blks_read),$2) as ratio
+  from pg_statio_user_indexes
+  union all
+  select
+    $3 as name,
+    sum(heap_blks_hit) / nullif(sum(heap_blks_hit) + sum(heap_blks_read),$4) as ratio
+  from pg_statio_user_tables",postgres,2,0.8923375,0.860673,0.924002,1.784675,4,100.0000000000000000,0.3575053991493319,null
+SELECT pg_stat_statements_reset(),postgres,1,1.617673,1.617673,1.617673,1.617673,1,0,0.32405162371753804,null
+"SELECT 
+          COALESCE(ROUND(AVG(statements.rows::numeric / NULLIF(statements.calls, $1)), $2), $3) as avg_rows_per_call,
+          COUNT(*) FILTER (WHERE statements.total_exec_time + statements.total_plan_time > $4) as slow_queries,
+          COALESCE(
+            ROUND(
+              SUM(statements.shared_blks_hit) * $5 / 
+              NULLIF(SUM(statements.shared_blks_hit + statements.shared_blks_read), $6), 
+              $7
+            ), $8
+          ) || $9 as cache_hit_rate
+        FROM pg_stat_statements as statements
+        WHERE statements.calls > $10
+        
+        
+
+-- source: dashboard
+-- user: 9d8cd83c-aaf4-424f-b95c-d62b90ec88c4
+-- date: 2025-10-30T14:28:19.056Z",postgres,2,0.1788005,0.137266,0.220335,0.357601,2,100.0000000000000000,0.0716344926898176,null
+"select
+            auth.rolname,
+            statements.query,
+            statements.calls,
+            -- -- Postgres 13, 14, 15
+            statements.total_exec_time + statements.total_plan_time as total_time,
+            statements.min_exec_time + statements.min_plan_time as min_time,
+            statements.max_exec_time + statements.max_plan_time as max_time,
+            statements.mean_exec_time + statements.mean_plan_time as mean_time,
+            -- -- Postgres <= 12
+            -- total_time,
+            -- min_time,
+            -- max_time,
+            -- mean_time,
+            statements.rows / statements.calls as avg_rows,
+            statements.rows as rows_read,
+            statements.shared_blks_hit as debug_hit,
+            statements.shared_blks_read as debug_read,
+            case 
+              when (statements.shared_blks_hit + statements.shared_blks_read) > $1 
+              then (statements.shared_blks_hit::numeric * $2) / 
+                   (statements.shared_blks_hit + statements.shared_blks_read)
+              else $3
+            end as cache_hit_rate,
+            ((statements.total_exec_time + statements.total_plan_time)/sum(statements.total_exec_time + statements.total_plan_time) OVER()) * $4 as prop_total_time
+          from pg_stat_statements as statements
+            inner join pg_authid as auth on statements.userid = auth.oid
+          
+          order by statements.total_exec_time + statements.total_plan_time desc
+          limit $5
+
+-- source: dashboard
+-- user: 9d8cd83c-aaf4-424f-b95c-d62b90ec88c4
+-- date: 2025-10-30T14:28:19.099Z",postgres,1,0.175068,0.175068,0.175068,0.175068,6,100.0000000000000000,0.03506955340231428,null
+"WITH pgrst_source AS ( SELECT ""public"".""pool_matches"".* FROM ""public"".""pool_matches""  ORDER BY ""public"".""pool_matches"".""game_number"" ASC  LIMIT $1 OFFSET $2 )  SELECT $3::bigint AS total_result_set, pg_catalog.count(_postgrest_t) AS page_total, coalesce(json_agg(_postgrest_t), $4) AS body, nullif(current_setting($5, $6), $7) AS response_headers, nullif(current_setting($8, $9), $10) AS response_status, $11 AS response_inserted FROM ( SELECT * FROM pgrst_source ) _postgrest_t",anon,1,0.117245,0.117245,0.117245,0.117245,1,100.0000000000000000,0.023486472620092406,null
+"select set_config('search_path', $1, true), set_config($2, $3, true), set_config('role', $4, true), set_config('request.jwt.claims', $5, true), set_config('request.method', $6, true), set_config('request.path', $7, true), set_config('request.headers', $8, true), set_config('request.cookies', $9, true)",anon,1,0.092218,0.092218,0.092218,0.092218,1,100.0000000000000000,0.018473073752225525,null
+SET statement_timeout='58s',postgres,8,0.0113715,0.010257,0.012718,0.090972,0,0,0.018223475518743197,null
+SELECT * FROM pgbouncer.get_auth($1),pgbouncer,1,0.079632,0.079632,0.079632,0.079632,1,100.0000000000000000,0.015951851146600696,null
+"update public.pool_matches set (team_a_score) = (select team_a_score from json_populate_record($1::public.pool_matches, $2)) where id = $3",postgres,1,0.079287,0.079287,0.079287,0.079287,1,100.0000000000000000,0.015882740881310645,null
+"with _base_query as (select * from public.pool_matches order by pool_matches.id asc nulls last limit $1 offset $2)
+  select id,round_number,case
+        when octet_length(team_a_pods::text) > $3 
+        then left(team_a_pods::text, $4) || $5
+        else team_a_pods::text
+      end as team_a_pods,case
+        when octet_length(team_b_pods::text) > $6 
+        then left(team_b_pods::text, $7) || $8
+        else team_b_pods::text
+      end as team_b_pods,team_a_score,team_b_score,status,created_at,updated_at,game_number,case
+        when octet_length(scheduled_time::text) > $9 
+        then left(scheduled_time::text, $10) || $11
+        else scheduled_time::text
+      end as scheduled_time,court_number,case
+        when octet_length(sitting_pods::text) > $12 
+        then left(sitting_pods::text, $13) || $14
+        else sitting_pods::text
+      end as sitting_pods from _base_query",postgres,1,0.064944,0.064944,0.064944,0.064944,6,100.0000000000000000,0.013009556721730405,null
+delete from realtime.subscription where subscription_id = ANY($1::uuid[]),supabase_admin,1,0.03694,0.03694,0.03694,0.03694,1,100.0000000000000000,0.007399806376273731,null
+"-- reports-query-performance-metrics
+        set search_path to public, extensions",postgres,4,0.00739275,0.007089,0.007647,0.029571,0,0,0.005923651173600175,null
+SET idle_session_timeout='58s',postgres,8,0.0018515,0.001641,0.002338,0.014812,0,0,0.002967134056452802,null
+BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY,authenticator,1,0.011561,0.011561,0.011561,0.011561,0,0,0.002315895005850043,null
+SET statement_timeout='58s',supabase_admin,1,0.011511,0.011511,0.011511,0.011511,0,0,0.0023058790253732246,null
+SET client_encoding = 'UTF8',authenticator,1,0.007073,0.007073,0.007073,0.007073,0,0,0.0014168605982507877,null
+COMMIT,supabase_admin,2,0.001358,0.001337,0.001379,0.002716,0,0,0.0005440680595007974,null

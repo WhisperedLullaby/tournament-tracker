@@ -1,6 +1,6 @@
 import { db } from "./index";
 import { pods, poolStandings, poolMatches } from "./schema";
-import { count, eq, desc, sql } from "drizzle-orm";
+import { count, eq, desc, sql, asc } from "drizzle-orm";
 
 /**
  * Get the total number of registered pods
@@ -85,6 +85,82 @@ export async function getPoolMatchesLog() {
     return matches;
   } catch (error) {
     console.error("Error fetching pool matches log:", error);
+    return [];
+  }
+}
+
+/**
+ * Get all currently in-progress pool matches
+ * Returns matches with status = 'in_progress'
+ */
+export async function getCurrentMatches() {
+  try {
+    const matches = await db
+      .select()
+      .from(poolMatches)
+      .where(eq(poolMatches.status, "in_progress"))
+      .orderBy(asc(poolMatches.gameNumber));
+
+    return matches;
+  } catch (error) {
+    console.error("Error fetching current matches:", error);
+    return [];
+  }
+}
+
+/**
+ * Get the next pending game by game number
+ * Returns the lowest game number with status = 'pending'
+ */
+export async function getNextPendingGame() {
+  try {
+    const match = await db
+      .select()
+      .from(poolMatches)
+      .where(eq(poolMatches.status, "pending"))
+      .orderBy(asc(poolMatches.gameNumber))
+      .limit(1);
+
+    return match[0] || null;
+  } catch (error) {
+    console.error("Error fetching next pending game:", error);
+    return null;
+  }
+}
+
+/**
+ * Get a specific pool match by game number
+ * @param gameNumber - The game number to fetch (1-6 for pool play)
+ */
+export async function getMatchByGameNumber(gameNumber: number) {
+  try {
+    const match = await db
+      .select()
+      .from(poolMatches)
+      .where(eq(poolMatches.gameNumber, gameNumber))
+      .limit(1);
+
+    return match[0] || null;
+  } catch (error) {
+    console.error("Error fetching match by game number:", error);
+    return null;
+  }
+}
+
+/**
+ * Get all pool matches for schedule display
+ * Returns all matches ordered by game number
+ */
+export async function getAllPoolMatches() {
+  try {
+    const matches = await db
+      .select()
+      .from(poolMatches)
+      .orderBy(asc(poolMatches.gameNumber));
+
+    return matches;
+  } catch (error) {
+    console.error("Error fetching all pool matches:", error);
     return [];
   }
 }

@@ -11,7 +11,7 @@ export function Navigation() {
     { label: "Home", href: "/" },
     { label: "Standings", href: "/standings" },
     { label: "Schedule", href: "/schedule" },
-    { label: "Scoring", href: "/scoring" },
+    { label: "Scorekeeper", href: "/scorekeeper" },
     { label: "Teams", href: "/teams" },
   ];
 
