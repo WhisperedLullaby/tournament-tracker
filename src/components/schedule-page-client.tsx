@@ -7,7 +7,10 @@ import { HeroGeometric } from "@/components/hero-geometric";
 import { CurrentGame } from "@/components/current-game";
 import { NextUp } from "@/components/next-up";
 import { ScheduleTable } from "@/components/schedule-table";
-import type { PoolMatch, Pod } from "@/lib/db/schema";
+import { BracketDisplay } from "@/components/bracket-display";
+import { BracketTeamCards } from "@/components/bracket-team-cards";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { PoolMatch, Pod, BracketMatch, BracketTeam } from "@/lib/db/schema";
 import { Info } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
@@ -24,6 +27,9 @@ interface SchedulePageClientProps {
   nextGame: PoolMatch | null;
   allMatches: PoolMatch[];
   allPods: Pod[];
+  isPoolPlayComplete: boolean;
+  bracketMatches?: BracketMatch[];
+  bracketTeams?: BracketTeam[];
 }
 
 export function SchedulePageClient({
@@ -31,6 +37,9 @@ export function SchedulePageClient({
   nextGame: initialNextGame,
   allMatches: initialAllMatches,
   allPods,
+  isPoolPlayComplete,
+  bracketMatches = [],
+  bracketTeams = [],
 }: SchedulePageClientProps) {
   // State for real-time updates
   const [allMatches, setAllMatches] = useState<PoolMatch[]>(initialAllMatches);
@@ -45,7 +54,8 @@ export function SchedulePageClient({
   // Create a map of pod ID to team name for easy lookup
   const podNames = new Map<number, string>();
   allPods.forEach((pod) => {
-    podNames.set(pod.id, pod.teamName || pod.name);
+    const displayName = pod.teamName || pod.name;
+    podNames.set(pod.id, displayName);
   });
 
   // Function to refresh matches from database with debounce protection
@@ -157,62 +167,139 @@ export function SchedulePageClient({
       <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10">
         {/* Hero Section */}
         <HeroGeometric
-          badge="LIVE SCORES"
+          badge={isPoolPlayComplete ? "TOURNAMENT" : "LIVE SCORES"}
           title1="Tournament"
           title2="Schedule"
-          description="Real-time scores and upcoming matches for pool play."
+          description={
+            isPoolPlayComplete
+              ? "View pool play schedule and tournament bracket."
+              : "Real-time scores and upcoming matches for pool play."
+          }
           className="mb-8"
         />
 
         <div className="container mx-auto space-y-6 px-4 pb-16">
-          {/* Main Layout: Current Game + Next Up */}
-          <div className="grid gap-6 lg:grid-cols-3">
-            {/* Current Game - Takes 2/3 width on large screens */}
-            <div className="lg:col-span-2">
-              <CurrentGame
-                initialMatch={currentMatch}
-                podNames={podNames}
-                scheduledTime={currentMatch?.scheduledTime || undefined}
-              />
-            </div>
+          {isPoolPlayComplete ? (
+            <Tabs defaultValue="bracket" className="w-full">
+              <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
+                <TabsTrigger value="pool">Pool Play</TabsTrigger>
+                <TabsTrigger value="bracket">Bracket</TabsTrigger>
+              </TabsList>
 
-            {/* Next Up - Takes 1/3 width on large screens */}
-            <div className="lg:col-span-1">
-              <NextUp
-                nextGamePods={nextGamePods}
-                nextGameTime={nextGame?.scheduledTime || undefined}
-                podNames={podNames}
-              />
-            </div>
-          </div>
+              <TabsContent value="pool" className="space-y-6 mt-6">
+                {/* Main Layout: Current Game + Next Up */}
+                <div className="grid gap-6 lg:grid-cols-3">
+                  {/* Current Game - Takes 2/3 width on large screens */}
+                  <div className="lg:col-span-2">
+                    <CurrentGame
+                      initialMatch={currentMatch}
+                      podNames={podNames}
+                      scheduledTime={currentMatch?.scheduledTime || undefined}
+                    />
+                  </div>
 
-          {/* Full Schedule Table - Full width */}
-          <div>
-            <ScheduleTable matches={allMatches} podNames={podNames} />
-          </div>
+                  {/* Next Up - Takes 1/3 width on large screens */}
+                  <div className="lg:col-span-1">
+                    <NextUp
+                      nextGamePods={nextGamePods}
+                      nextGameTime={nextGame?.scheduledTime || undefined}
+                      podNames={podNames}
+                    />
+                  </div>
+                </div>
 
-          {/* Tournament Notes Section */}
-          <Card className="border-2 border-muted">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Info className="h-5 w-5" />
-                Tournament Notes
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                {TOURNAMENT_NOTES.map((note, index) => (
-                  <li
-                    key={index}
-                    className="text-sm text-muted-foreground flex items-start gap-2"
-                  >
-                    <span className="text-primary font-bold mt-0.5">•</span>
-                    <span>{note}</span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
+                {/* Full Schedule Table - Full width */}
+                <div>
+                  <ScheduleTable matches={allMatches} podNames={podNames} />
+                </div>
+
+                {/* Tournament Notes Section */}
+                <Card className="border-2 border-muted">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Info className="h-5 w-5" />
+                      Tournament Notes
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2">
+                      {TOURNAMENT_NOTES.map((note, index) => (
+                        <li
+                          key={index}
+                          className="text-sm text-muted-foreground flex items-start gap-2"
+                        >
+                          <span className="text-primary font-bold mt-0.5">
+                            •
+                          </span>
+                          <span>{note}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="bracket" className="space-y-6 mt-6">
+                <BracketDisplay
+                  matches={bracketMatches}
+                  teams={bracketTeams}
+                  pods={podNames}
+                />
+                <BracketTeamCards teams={bracketTeams} pods={podNames} />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <>
+              {/* Main Layout: Current Game + Next Up */}
+              <div className="grid gap-6 lg:grid-cols-3">
+                {/* Current Game - Takes 2/3 width on large screens */}
+                <div className="lg:col-span-2">
+                  <CurrentGame
+                    initialMatch={currentMatch}
+                    podNames={podNames}
+                    scheduledTime={currentMatch?.scheduledTime || undefined}
+                  />
+                </div>
+
+                {/* Next Up - Takes 1/3 width on large screens */}
+                <div className="lg:col-span-1">
+                  <NextUp
+                    nextGamePods={nextGamePods}
+                    nextGameTime={nextGame?.scheduledTime || undefined}
+                    podNames={podNames}
+                  />
+                </div>
+              </div>
+
+              {/* Full Schedule Table - Full width */}
+              <div>
+                <ScheduleTable matches={allMatches} podNames={podNames} />
+              </div>
+
+              {/* Tournament Notes Section */}
+              <Card className="border-2 border-muted">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Info className="h-5 w-5" />
+                    Tournament Notes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2">
+                    {TOURNAMENT_NOTES.map((note, index) => (
+                      <li
+                        key={index}
+                        className="text-sm text-muted-foreground flex items-start gap-2"
+                      >
+                        <span className="text-primary font-bold mt-0.5">•</span>
+                        <span>{note}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
       </div>
       <Footer />

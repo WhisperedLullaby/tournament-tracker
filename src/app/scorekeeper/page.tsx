@@ -2,50 +2,42 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Play, CheckCircle } from "lucide-react";
+import { ArrowLeft, Play, CheckCircle, Trophy } from "lucide-react";
 import { ScoreDisplay } from "@/components/score-display";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
-import type { PoolMatch } from "@/lib/db/schema";
+import { adaptCombinedNamesToFirstNames } from "@/lib/utils/name-adapter";
+import type { PoolMatch, BracketMatch } from "@/lib/db/schema";
+
+type GameMatch = PoolMatch | (BracketMatch & { isBracket: true });
 
 export default function ScorekeeperPage() {
   const router = useRouter();
-  const [currentGame, setCurrentGame] = useState<PoolMatch | null>(null);
-  const [nextGame, setNextGame] = useState<PoolMatch | null>(null);
+  const [currentGame, setCurrentGame] = useState<GameMatch | null>(null);
+  const [nextGame, setNextGame] = useState<GameMatch | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
   const [pods, setPods] = useState<Map<number, string>>(new Map());
+  const [bracketTeams, setBracketTeams] = useState<Map<number, string>>(
+    new Map()
+  );
+  const [isBracketPlay, setIsBracketPlay] = useState(false);
 
   // Fetch initial data
   const fetchData = useCallback(async () => {
     try {
-      console.log("Fetching scorekeeper data...");
 
-      // Fetch current in-progress game
-      const { data: inProgressGames, error: inProgressError } = await supabase
+      // Check if pool play is complete
+      const { data: poolMatches, error: poolCountError } = await supabase
         .from("pool_matches")
-        .select("*")
-        .eq("status", "in_progress")
-        .order("game_number", { ascending: true });
+        .select("*", { count: "exact" })
+        .eq("status", "completed");
 
-      if (inProgressError) {
-        console.error("Error fetching in-progress games:", inProgressError);
-        throw inProgressError;
-      }
+      if (poolCountError) throw poolCountError;
 
-      // Fetch next pending game
-      const { data: pendingGames, error: pendingError } = await supabase
-        .from("pool_matches")
-        .select("*")
-        .eq("status", "pending")
-        .order("game_number", { ascending: true })
-        .limit(1);
-
-      if (pendingError) {
-        console.error("Error fetching pending games:", pendingError);
-        throw pendingError;
-      }
+      const isPoolComplete = (poolMatches?.length || 0) >= 6;
+      setIsBracketPlay(isPoolComplete);
 
       // Fetch all pods for team names
       const { data: podsData, error: podsError } = await supabase
@@ -60,23 +52,93 @@ export default function ScorekeeperPage() {
       if (podsData) {
         const podMap = new Map<number, string>();
         podsData.forEach((pod) => {
-          podMap.set(pod.id, pod.team_name || pod.name);
+          const displayName = pod.team_name
+            ? pod.team_name
+            : adaptCombinedNamesToFirstNames(pod.name);
+          podMap.set(pod.id, displayName);
         });
         setPods(podMap);
       }
 
-      setCurrentGame(
-        inProgressGames && inProgressGames.length > 0
-          ? mapToPoolMatch(inProgressGames[0])
-          : null
-      );
-      setNextGame(
-        pendingGames && pendingGames.length > 0
-          ? mapToPoolMatch(pendingGames[0])
-          : null
-      );
+      if (isPoolComplete) {
+        // Fetch bracket matches
+        const { data: inProgressBracket, error: bracketInProgressError } =
+          await supabase
+            .from("bracket_matches")
+            .select("*")
+            .eq("status", "in_progress")
+            .order("game_number", { ascending: true });
+
+        if (bracketInProgressError) throw bracketInProgressError;
+
+        const { data: pendingBracket, error: bracketPendingError } =
+          await supabase
+            .from("bracket_matches")
+            .select("*")
+            .eq("status", "pending")
+            .order("game_number", { ascending: true })
+            .limit(1);
+
+        if (bracketPendingError) throw bracketPendingError;
+
+        // Fetch bracket teams
+        const { data: teamsData, error: teamsError } = await supabase
+          .from("bracket_teams")
+          .select("*");
+
+        if (teamsError) throw teamsError;
+
+        if (teamsData) {
+          const teamMap = new Map<number, string>();
+          teamsData.forEach((team) => {
+            teamMap.set(team.id, team.team_name);
+          });
+          setBracketTeams(teamMap);
+        }
+
+        setCurrentGame(
+          inProgressBracket && inProgressBracket.length > 0
+            ? { ...mapToBracketMatch(inProgressBracket[0]), isBracket: true }
+            : null
+        );
+        setNextGame(
+          pendingBracket && pendingBracket.length > 0
+            ? { ...mapToBracketMatch(pendingBracket[0]), isBracket: true }
+            : null
+        );
+      } else {
+        // Fetch pool matches
+        const { data: inProgressGames, error: inProgressError } =
+          await supabase
+            .from("pool_matches")
+            .select("*")
+            .eq("status", "in_progress")
+            .order("game_number", { ascending: true });
+
+        if (inProgressError) throw inProgressError;
+
+        const { data: pendingGames, error: pendingError } = await supabase
+          .from("pool_matches")
+          .select("*")
+          .eq("status", "pending")
+          .order("game_number", { ascending: true })
+          .limit(1);
+
+        if (pendingError) throw pendingError;
+
+        setCurrentGame(
+          inProgressGames && inProgressGames.length > 0
+            ? mapToPoolMatch(inProgressGames[0])
+            : null
+        );
+        setNextGame(
+          pendingGames && pendingGames.length > 0
+            ? mapToPoolMatch(pendingGames[0])
+            : null
+        );
+      }
+
       setLoading(false);
-      console.log("Data loaded successfully");
     } catch (error) {
       console.error("Error fetching data:", error);
       setError(
@@ -99,10 +161,20 @@ export default function ScorekeeperPage() {
     fetchData();
 
     return () => clearTimeout(timeout);
-  }, [fetchData, loading]);
+  }, [fetchData]); // Removed loading dependency to prevent loop
 
   // Subscribe to real-time updates
   useEffect(() => {
+    // Add debounce to prevent excessive fetching
+    let timeoutId: NodeJS.Timeout | null = null;
+
+    const debouncedFetchData = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        fetchData();
+      }, 500); // Wait 500ms before refetching
+    };
+
     const channel = supabase
       .channel(`scorekeeper-${Date.now()}`)
       .on(
@@ -113,15 +185,52 @@ export default function ScorekeeperPage() {
           table: "pool_matches",
         },
         () => {
-          fetchData();
+          debouncedFetchData();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "bracket_matches",
+        },
+        () => {
+          debouncedFetchData();
         }
       )
       .subscribe();
 
     return () => {
+      if (timeoutId) clearTimeout(timeoutId);
       supabase.removeChannel(channel);
     };
   }, [fetchData]);
+
+  // Map database row to BracketMatch type
+  const mapToBracketMatch = (row: {
+    id: number;
+    game_number: number;
+    bracket_type: "winners" | "losers" | "championship";
+    team_a_id: number | null;
+    team_b_id: number | null;
+    team_a_score: number;
+    team_b_score: number;
+    status: "pending" | "in_progress" | "completed";
+    created_at: string;
+    updated_at: string;
+  }): BracketMatch => ({
+    id: row.id,
+    gameNumber: row.game_number,
+    bracketType: row.bracket_type,
+    teamAId: row.team_a_id,
+    teamBId: row.team_b_id,
+    teamAScore: row.team_a_score,
+    teamBScore: row.team_b_score,
+    status: row.status,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+  });
 
   // Map database row to PoolMatch type
   const mapToPoolMatch = (row: {
@@ -154,8 +263,18 @@ export default function ScorekeeperPage() {
     updatedAt: new Date(row.updated_at),
   });
 
-  // Format team names from pod IDs
-  const formatTeamNames = (podIds: number[] | null | undefined): string => {
+  // Format team names from pod IDs or team IDs
+  const formatTeamNames = (
+    podIds: number[] | null | undefined,
+    teamId?: number | null
+  ): string => {
+    // For bracket matches, use team ID
+    if (teamId !== undefined) {
+      if (!teamId) return "TBD";
+      return bracketTeams.get(teamId) || `Team ${teamId}`;
+    }
+
+    // For pool matches, use pod IDs
     if (!podIds || !Array.isArray(podIds) || podIds.length === 0) {
       return "TBD";
     }
@@ -168,14 +287,22 @@ export default function ScorekeeperPage() {
     setUpdating(true);
 
     try {
-      const response = await fetch("/api/games/start", {
+      const endpoint = isBracketPlay
+        ? "/api/bracket/games/start"
+        : "/api/games/start";
+
+      const response = await fetch(endpoint, {
         method: "POST",
       });
 
       if (!response.ok) {
         const error = await response.json();
         alert(error.error || "Failed to start game");
+        return;
       }
+
+      // Immediately fetch the updated game state
+      await fetchData();
     } catch (error) {
       console.error("Error starting game:", error);
       alert("Failed to start game");
@@ -191,7 +318,21 @@ export default function ScorekeeperPage() {
     teamBScore: number
   ) => {
     try {
-      const response = await fetch(`/api/games/${gameId}/score`, {
+      // Optimistic update - update local state immediately
+      setCurrentGame((prev) => {
+        if (!prev || prev.id !== gameId) return prev;
+        return {
+          ...prev,
+          teamAScore,
+          teamBScore,
+        };
+      });
+
+      const endpoint = isBracketPlay
+        ? `/api/bracket/games/${gameId}/score`
+        : `/api/games/${gameId}/score`;
+
+      const response = await fetch(endpoint, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ teamAScore, teamBScore }),
@@ -200,9 +341,13 @@ export default function ScorekeeperPage() {
       if (!response.ok) {
         const error = await response.json();
         console.error("Failed to update score:", error);
+        // Revert optimistic update on error
+        fetchData();
       }
     } catch (error) {
       console.error("Error updating score:", error);
+      // Revert optimistic update on error
+      fetchData();
     }
   };
 
@@ -212,14 +357,41 @@ export default function ScorekeeperPage() {
     setUpdating(true);
 
     try {
-      const response = await fetch(`/api/games/${currentGame.id}/complete`, {
+      const endpoint = isBracketPlay
+        ? `/api/bracket/games/${currentGame.id}/complete`
+        : `/api/games/${currentGame.id}/complete`;
+
+      const response = await fetch(endpoint, {
         method: "POST",
       });
 
       if (!response.ok) {
         const error = await response.json();
         alert(error.error || "Failed to complete game");
+        return;
       }
+
+      // If this was the 6th pool game, initialize bracket
+      if (
+        !isBracketPlay &&
+        "gameNumber" in currentGame &&
+        currentGame.gameNumber === 6
+      ) {
+        try {
+          const bracketResponse = await fetch("/api/bracket/initialize", {
+            method: "POST",
+          });
+
+          if (!bracketResponse.ok) {
+            console.error("Failed to initialize bracket");
+          }
+        } catch (error) {
+          console.error("Error initializing bracket:", error);
+        }
+      }
+
+      // Immediately fetch the next game
+      await fetchData();
     } catch (error) {
       console.error("Error completing game:", error);
       alert("Failed to complete game");
@@ -284,12 +456,22 @@ export default function ScorekeeperPage() {
           <div className="w-full max-w-5xl flex flex-col items-center gap-2 sm:gap-3">
             {/* Game Info */}
             <div className="text-center text-white">
-              <h1 className="text-xl sm:text-2xl font-bold mb-1">
-                Game {gameToDisplay.gameNumber}
-              </h1>
+              <div className="flex items-center justify-center gap-2 mb-2">
+                {isBracketPlay && (
+                  <Trophy className="w-5 h-5 text-yellow-500" />
+                )}
+                <h1 className="text-xl sm:text-2xl font-bold">
+                  {isBracketPlay ? "Bracket" : "Pool Play"} Game{" "}
+                  {gameToDisplay.gameNumber}
+                </h1>
+              </div>
               <p className="text-xs sm:text-sm text-white/60">
-                {gameToDisplay.scheduledTime || "TBD"} • Court{" "}
-                {gameToDisplay.courtNumber}
+                {"scheduledTime" in gameToDisplay
+                  ? gameToDisplay.scheduledTime
+                  : ""}
+                {"courtNumber" in gameToDisplay
+                  ? ` • Court ${gameToDisplay.courtNumber}`
+                  : ""}
               </p>
               {gameToDisplay.status === "pending" && (
                 <p className="text-yellow-400/80 font-medium mt-1 text-xs sm:text-sm">
@@ -302,7 +484,13 @@ export default function ScorekeeperPage() {
             <div className="w-full grid grid-cols-2 gap-4 sm:gap-8 max-w-4xl">
               {/* Team A */}
               <ScoreDisplay
-                teamName={formatTeamNames(gameToDisplay.teamAPods as number[])}
+                teamName={
+                  isBracketPlay && "teamAId" in gameToDisplay
+                    ? formatTeamNames(undefined, gameToDisplay.teamAId)
+                    : "teamAPods" in gameToDisplay
+                      ? formatTeamNames(gameToDisplay.teamAPods as number[])
+                      : "TBD"
+                }
                 score={gameToDisplay.teamAScore}
                 onIncrement={() =>
                   handleScoreUpdate(
@@ -324,7 +512,13 @@ export default function ScorekeeperPage() {
 
               {/* Team B */}
               <ScoreDisplay
-                teamName={formatTeamNames(gameToDisplay.teamBPods as number[])}
+                teamName={
+                  isBracketPlay && "teamBId" in gameToDisplay
+                    ? formatTeamNames(undefined, gameToDisplay.teamBId)
+                    : "teamBPods" in gameToDisplay
+                      ? formatTeamNames(gameToDisplay.teamBPods as number[])
+                      : "TBD"
+                }
                 score={gameToDisplay.teamBScore}
                 onIncrement={() =>
                   handleScoreUpdate(

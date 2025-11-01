@@ -1,6 +1,10 @@
 import { db } from "./index";
-import { pods, poolStandings, poolMatches } from "./schema";
+import { pods, poolStandings, poolMatches, bracketTeams, bracketMatches } from "./schema";
 import { count, eq, desc, sql, asc } from "drizzle-orm";
+import {
+  adaptPlayerNameToFirstName as _adaptPlayerNameToFirstName,
+  adaptCombinedNamesToFirstNames as _adaptCombinedNamesToFirstNames,
+} from "@/lib/utils/name-adapter";
 
 type PodData = {
   podId: number;
@@ -40,13 +44,16 @@ export async function getAllPods(): Promise<PodData[]> {
       .from(pods)
       .orderBy(asc(pods.id));
 
-    // Use adapter to translate database IDs to pod numbers
+    // Use adapters to translate database IDs to pod numbers and extract first names
     const translatedPods = await Promise.all(
       podList.map(async (pod) => {
         const translatedPodNumber = await adaptPodIdToNumber(pod.podId);
         return {
           ...pod,
           podId: translatedPodNumber ?? pod.podId, // Fallback to original ID if translation fails
+          player1: _adaptPlayerNameToFirstName(pod.player1),
+          player2: _adaptPlayerNameToFirstName(pod.player2),
+          playerNames: _adaptCombinedNamesToFirstNames(pod.playerNames),
         };
       })
     );
@@ -100,7 +107,15 @@ export async function getPoolStandings() {
         desc(sql`COALESCE(${poolStandings.wins}, 0)`)
       );
 
-    return standings;
+    // Apply name adapter to extract first names only
+    const adaptedStandings = standings.map((standing) => ({
+      ...standing,
+      player1: _adaptPlayerNameToFirstName(standing.player1),
+      player2: _adaptPlayerNameToFirstName(standing.player2),
+      playerNames: _adaptCombinedNamesToFirstNames(standing.playerNames),
+    }));
+
+    return adaptedStandings;
   } catch (error) {
     console.error("Error fetching pool standings:", error);
     return [];
@@ -287,4 +302,340 @@ export async function adaptPodIdToNumber(
   podId: number
 ): Promise<number | undefined> {
   return podIdAdapter.adaptPodIdToNumber(podId);
+}
+
+// Re-export name adapter functions from utility module
+export {
+  adaptPlayerNameToFirstName,
+  adaptCombinedNamesToFirstNames,
+} from "@/lib/utils/name-adapter";
+
+/**
+ * Check if pool play is complete
+ * Returns true if all 6 pool play games have been completed
+ */
+export async function isPoolPlayComplete(): Promise<boolean> {
+  try {
+    const completedMatches = await db
+      .select({ count: count() })
+      .from(poolMatches)
+      .where(eq(poolMatches.status, "completed"));
+
+    return (completedMatches[0]?.count || 0) >= 6;
+  } catch (error) {
+    console.error("Error checking pool play completion:", error);
+    return false;
+  }
+}
+
+/**
+ * Create bracket teams from final pool standings
+ * Creates 3 teams based on final standings:
+ * - Team A (1st seed): Places 1, 5, 9
+ * - Team B (2nd seed): Places 2, 6, 7
+ * - Team C (3rd seed): Places 3, 4, 8
+ *
+ * Returns the created teams or existing teams if already created
+ */
+export async function createBracketTeamsFromStandings() {
+  try {
+    // Check if teams already exist
+    const existingTeams = await db.select().from(bracketTeams);
+    if (existingTeams.length > 0) {
+      return existingTeams;
+    }
+
+    // Get final standings
+    const standings = await getPoolStandings();
+
+    if (standings.length < 9) {
+      throw new Error("Not enough pods to create bracket teams");
+    }
+
+    // Create Team A (1st seed): Places 1, 5, 9
+    const teamA = await db
+      .insert(bracketTeams)
+      .values({
+        teamName: "Team A",
+        pod1Id: standings[0].podId,
+        pod2Id: standings[4].podId,
+        pod3Id: standings[8].podId,
+      })
+      .returning();
+
+    // Create Team B (2nd seed): Places 2, 6, 7
+    const teamB = await db
+      .insert(bracketTeams)
+      .values({
+        teamName: "Team B",
+        pod1Id: standings[1].podId,
+        pod2Id: standings[5].podId,
+        pod3Id: standings[6].podId,
+      })
+      .returning();
+
+    // Create Team C (3rd seed): Places 3, 4, 8
+    const teamC = await db
+      .insert(bracketTeams)
+      .values({
+        teamName: "Team C",
+        pod1Id: standings[2].podId,
+        pod2Id: standings[3].podId,
+        pod3Id: standings[7].podId,
+      })
+      .returning();
+
+    return [teamA[0], teamB[0], teamC[0]];
+  } catch (error) {
+    console.error("Error creating bracket teams:", error);
+    throw error;
+  }
+}
+
+/**
+ * Seed bracket matches based on double elimination format
+ * Game 1: Team B vs Team C (Team A gets bye)
+ * Game 2: Team A vs Winner G1
+ * Game 3: Loser G1 vs Loser G2
+ * Game 4: Winner G3 vs Winner G2
+ * Game 5: Conditional - only if Winner G2 loses G4
+ *
+ * Returns the created matches or existing matches if already created
+ */
+export async function seedBracketMatches() {
+  try {
+    // Check if matches already exist
+    const existingMatches = await db.select().from(bracketMatches);
+    if (existingMatches.length > 0) {
+      return existingMatches;
+    }
+
+    // Get bracket teams
+    const teams = await db
+      .select()
+      .from(bracketTeams)
+      .orderBy(asc(bracketTeams.teamName));
+
+    if (teams.length < 3) {
+      throw new Error("Not enough bracket teams to create matches");
+    }
+
+    const teamA = teams.find(t => t.teamName === "Team A");
+    const teamB = teams.find(t => t.teamName === "Team B");
+    const teamC = teams.find(t => t.teamName === "Team C");
+
+    if (!teamA || !teamB || !teamC) {
+      throw new Error("Could not find all bracket teams");
+    }
+
+    // Game 1: Team B vs Team C (winners bracket)
+    const game1 = await db
+      .insert(bracketMatches)
+      .values({
+        gameNumber: 1,
+        bracketType: "winners",
+        teamAId: teamB.id,
+        teamBId: teamC.id,
+        status: "pending",
+      })
+      .returning();
+
+    // Game 2: Team A vs Winner G1 (winners bracket) - teamBId will be filled when G1 completes
+    const game2 = await db
+      .insert(bracketMatches)
+      .values({
+        gameNumber: 2,
+        bracketType: "winners",
+        teamAId: teamA.id,
+        teamBId: null, // Winner of Game 1
+        status: "pending",
+      })
+      .returning();
+
+    // Game 3: Loser G1 vs Loser G2 (losers bracket)
+    const game3 = await db
+      .insert(bracketMatches)
+      .values({
+        gameNumber: 3,
+        bracketType: "losers",
+        teamAId: null, // Loser of Game 1
+        teamBId: null, // Loser of Game 2
+        status: "pending",
+      })
+      .returning();
+
+    // Game 4: Winner G2 vs Winner G3 (championship potential)
+    const game4 = await db
+      .insert(bracketMatches)
+      .values({
+        gameNumber: 4,
+        bracketType: "winners",
+        teamAId: null, // Winner of Game 2
+        teamBId: null, // Winner of Game 3
+        status: "pending",
+      })
+      .returning();
+
+    return [game1[0], game2[0], game3[0], game4[0]];
+  } catch (error) {
+    console.error("Error seeding bracket matches:", error);
+    throw error;
+  }
+}
+
+/**
+ * Get all bracket teams
+ */
+export async function getBracketTeams() {
+  try {
+    return await db
+      .select()
+      .from(bracketTeams)
+      .orderBy(asc(bracketTeams.teamName));
+  } catch (error) {
+    console.error("Error fetching bracket teams:", error);
+    return [];
+  }
+}
+
+/**
+ * Get all bracket matches
+ */
+export async function getBracketMatches() {
+  try {
+    return await db
+      .select()
+      .from(bracketMatches)
+      .orderBy(asc(bracketMatches.gameNumber));
+  } catch (error) {
+    console.error("Error fetching bracket matches:", error);
+    return [];
+  }
+}
+
+/**
+ * Get the current in-progress bracket match
+ */
+export async function getCurrentBracketMatch() {
+  try {
+    const matches = await db
+      .select()
+      .from(bracketMatches)
+      .where(eq(bracketMatches.status, "in_progress"))
+      .orderBy(asc(bracketMatches.gameNumber))
+      .limit(1);
+
+    return matches[0] || null;
+  } catch (error) {
+    console.error("Error fetching current bracket match:", error);
+    return null;
+  }
+}
+
+/**
+ * Get the next pending bracket match
+ */
+export async function getNextBracketMatch() {
+  try {
+    const matches = await db
+      .select()
+      .from(bracketMatches)
+      .where(eq(bracketMatches.status, "pending"))
+      .orderBy(asc(bracketMatches.gameNumber))
+      .limit(1);
+
+    return matches[0] || null;
+  } catch (error) {
+    console.error("Error fetching next bracket match:", error);
+    return null;
+  }
+}
+
+/**
+ * Advance teams after a bracket match completes
+ * Implements the progression logic for double elimination
+ */
+export async function advanceBracketTeams(completedGameNumber: number, winnerId: number, loserId: number) {
+  try {
+    switch (completedGameNumber) {
+      case 1:
+        // Game 1 complete: Winner to G2, Loser to G3
+        await db
+          .update(bracketMatches)
+          .set({ teamBId: winnerId })
+          .where(eq(bracketMatches.gameNumber, 2));
+
+        await db
+          .update(bracketMatches)
+          .set({ teamAId: loserId })
+          .where(eq(bracketMatches.gameNumber, 3));
+        break;
+
+      case 2:
+        // Game 2 complete: Winner to G4, Loser to G3
+        await db
+          .update(bracketMatches)
+          .set({ teamAId: winnerId })
+          .where(eq(bracketMatches.gameNumber, 4));
+
+        await db
+          .update(bracketMatches)
+          .set({ teamBId: loserId })
+          .where(eq(bracketMatches.gameNumber, 3));
+        break;
+
+      case 3:
+        // Game 3 complete: Winner to G4
+        await db
+          .update(bracketMatches)
+          .set({ teamBId: winnerId })
+          .where(eq(bracketMatches.gameNumber, 4));
+        break;
+
+      case 4:
+        // Game 4 complete: Check if G5 is needed
+        // If the winner of G4 is the team that lost G2 (came from losers bracket), need G5
+        const game2 = await db
+          .select()
+          .from(bracketMatches)
+          .where(eq(bracketMatches.gameNumber, 2))
+          .limit(1);
+
+        if (!game2[0]) break;
+
+        const game2WinnerId = game2[0].teamAScore > game2[0].teamBScore ? game2[0].teamAId : game2[0].teamBId;
+
+        // If G4 winner is NOT the G2 winner, they need a rematch (G5)
+        if (winnerId !== game2WinnerId) {
+          // Create Game 5 if it doesn't exist
+          const existingGame5 = await db
+            .select()
+            .from(bracketMatches)
+            .where(eq(bracketMatches.gameNumber, 5))
+            .limit(1);
+
+          if (existingGame5.length === 0) {
+            await db
+              .insert(bracketMatches)
+              .values({
+                gameNumber: 5,
+                bracketType: "championship",
+                teamAId: game2WinnerId,
+                teamBId: winnerId,
+                status: "pending",
+              });
+          }
+        }
+        break;
+
+      case 5:
+        // Game 5 complete: Tournament over, winner is champion
+        break;
+
+      default:
+    }
+  } catch (error) {
+    console.error("Error advancing bracket teams:", error);
+    throw error;
+  }
 }

@@ -6,7 +6,10 @@ import { Footer } from "@/components/footer";
 import { HeroGeometric } from "@/components/hero-geometric";
 import { SortableTable, ColumnDef } from "@/components/sortable-table";
 import { GameLog } from "@/components/game-log";
+import { BracketStandings } from "@/components/bracket-standings";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, ChevronDown, ChevronRight } from "lucide-react";
+import type { BracketMatch, BracketTeam } from "@/lib/db/schema";
 
 type StandingsData = {
   podId: number;
@@ -35,11 +38,19 @@ type MatchLogData = {
 interface StandingsPageClientProps {
   standings: StandingsData[];
   matchLog: MatchLogData[];
+  isPoolPlayComplete: boolean;
+  bracketMatches?: BracketMatch[];
+  bracketTeams?: BracketTeam[];
+  podNames?: Map<number, string>;
 }
 
 export function StandingsPageClient({
   standings,
   matchLog,
+  isPoolPlayComplete,
+  bracketMatches = [],
+  bracketTeams = [],
+  podNames = new Map(),
 }: StandingsPageClientProps) {
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
@@ -161,26 +172,64 @@ export function StandingsPageClient({
       <div className="min-h-screen">
         {/* Hero Section */}
         <HeroGeometric
-          badge="POOL PLAY"
+          badge={isPoolPlayComplete ? "TOURNAMENT" : "POOL PLAY"}
           title1="Tournament"
           title2="Standings"
-          description="Live standings updated after each match. Teams ranked by point differential."
+          description={
+            isPoolPlayComplete
+              ? "View pool play standings and bracket tournament results."
+              : "Live standings updated after each match. Teams ranked by point differential."
+          }
           className="mb-12"
         />
 
         <div className="container mx-auto space-y-8 px-4 pb-16">
-          {/* Standings Table */}
-          <SortableTable
-            title="Pool Play Standings"
-            columns={standingsColumns}
-            data={standings}
-            defaultSortKey="pointDifferential"
-            defaultSortDirection="desc"
-            emptyMessage="No standings available yet. Matches will appear here once pool play begins."
-          />
+          {isPoolPlayComplete ? (
+            <Tabs defaultValue="bracket" className="w-full">
+              <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
+                <TabsTrigger value="pool">Pool Play</TabsTrigger>
+                <TabsTrigger value="bracket">Bracket</TabsTrigger>
+              </TabsList>
 
-          {/* Game Log */}
-          <GameLog matchLog={matchLog} standings={standings} />
+              <TabsContent value="pool" className="space-y-8 mt-6">
+                {/* Standings Table */}
+                <SortableTable
+                  title="Pool Play Standings"
+                  columns={standingsColumns}
+                  data={standings}
+                  defaultSortKey="pointDifferential"
+                  defaultSortDirection="desc"
+                  emptyMessage="No standings available yet. Matches will appear here once pool play begins."
+                />
+
+                {/* Game Log */}
+                <GameLog matchLog={matchLog} standings={standings} />
+              </TabsContent>
+
+              <TabsContent value="bracket" className="space-y-8 mt-6">
+                <BracketStandings
+                  matches={bracketMatches}
+                  teams={bracketTeams}
+                  pods={podNames}
+                />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <>
+              {/* Standings Table */}
+              <SortableTable
+                title="Pool Play Standings"
+                columns={standingsColumns}
+                data={standings}
+                defaultSortKey="pointDifferential"
+                defaultSortDirection="desc"
+                emptyMessage="No standings available yet. Matches will appear here once pool play begins."
+              />
+
+              {/* Game Log */}
+              <GameLog matchLog={matchLog} standings={standings} />
+            </>
+          )}
         </div>
       </div>
       <Footer />
