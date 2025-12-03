@@ -81,7 +81,7 @@ export function ScheduleTable({ matches, podNames }: ScheduleTableProps) {
     <Card>
       <CardHeader>
         <CardTitle>Pool Play Schedule</CardTitle>
-        <div className="flex flex-wrap gap-2 mt-4">
+        <div className="mt-4 flex flex-wrap gap-2">
           <Button
             variant={filterPod === null ? "default" : "outline"}
             size="sm"
@@ -89,7 +89,7 @@ export function ScheduleTable({ matches, podNames }: ScheduleTableProps) {
           >
             All Pods
           </Button>
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((pod) => (
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((pod) => (
             <Button
               key={pod}
               variant={filterPod === pod ? "default" : "outline"}
@@ -120,7 +120,7 @@ export function ScheduleTable({ matches, podNames }: ScheduleTableProps) {
                 <TableRow>
                   <TableCell
                     colSpan={7}
-                    className="text-center text-muted-foreground"
+                    className="text-muted-foreground text-center"
                   >
                     No games found for this pod
                   </TableCell>
@@ -143,13 +143,13 @@ export function ScheduleTable({ matches, podNames }: ScheduleTableProps) {
                           {formatTeamNames(match.teamAPods as number[])}
                         </span>
                         {match.status !== "pending" && (
-                          <span className="text-sm font-semibold text-primary mt-1">
+                          <span className="text-primary mt-1 text-sm font-semibold">
                             {match.teamAScore}
                           </span>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-center text-muted-foreground">
+                    <TableCell className="text-muted-foreground text-center">
                       vs
                     </TableCell>
                     <TableCell>
@@ -158,7 +158,7 @@ export function ScheduleTable({ matches, podNames }: ScheduleTableProps) {
                           {formatTeamNames(match.teamBPods as number[])}
                         </span>
                         {match.status !== "pending" && (
-                          <span className="text-sm font-semibold text-primary mt-1">
+                          <span className="text-primary mt-1 text-sm font-semibold">
                             {match.teamBScore}
                           </span>
                         )}

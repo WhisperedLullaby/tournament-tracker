@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     const registrationOpen = await isRegistrationOpen();
     if (!registrationOpen) {
       return NextResponse.json(
-        { error: "Registration is closed. All 9 spots have been filled." },
+        { error: "Registration is closed. All 12 spots have been filled." },
         { status: 400 }
       );
     }
@@ -151,8 +151,8 @@ export async function POST(request: NextRequest) {
                 <!-- Tournament Details -->
                 <h2 style="font-size: 20px; color: #727D73; margin-top: 30px; margin-bottom: 15px;">Tournament Details</h2>
                 <div style="font-size: 15px; line-height: 1.8;">
-                  <p style="margin: 8px 0;"><strong>📅 Date:</strong> Saturday, November 1st, 2025</p>
-                  <p style="margin: 8px 0;"><strong>🕐 Time:</strong> 10:00 AM - 2:00 PM</p>
+                  <p style="margin: 8px 0;"><strong>📅 Date:</strong> Saturday, December 13th, 2025</p>
+                  <p style="margin: 8px 0;"><strong>🕐 Time:</strong> 10:00 AM - 4:00 PM</p>
                   <p style="margin: 8px 0;">
                     <strong>📍 Location:</strong> All American FieldHouse<br>
                     <span style="padding-left: 24px; display: block;">1 Racquet Ln, Monroeville, PA 15146</span>

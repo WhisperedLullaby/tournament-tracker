@@ -21,7 +21,7 @@ async function fixGamePodIds() {
     // Get all pods sorted by ID
     const allPods = await db.select().from(pods).orderBy(pods.id);
 
-    if (allPods.length !== 9) {
+    if (allPods.length !== 12) {
       console.error(`❌ Expected 9 pods, but found ${allPods.length}`);
       console.log("\nRegistered pods:");
       allPods.forEach((pod) => {
@@ -32,7 +32,9 @@ async function fixGamePodIds() {
 
     console.log(`✓ Found ${allPods.length} registered pods:\n`);
     allPods.forEach((pod, index) => {
-      console.log(`  ${index + 1} → Pod ${pod.id}: ${pod.teamName || pod.name}`);
+      console.log(
+        `  ${index + 1} → Pod ${pod.id}: ${pod.teamName || pod.name}`
+      );
     });
 
     // Create mapping from old pod IDs (1-9) to new pod IDs
@@ -74,9 +76,15 @@ async function fixGamePodIds() {
         .where(eq(poolMatches.id, game.id));
 
       console.log(`✓ Game ${game.gameNumber}: Updated pod IDs`);
-      console.log(`  Team A: [${teamAPods.join(", ")}] → [${newTeamAPods.join(", ")}]`);
-      console.log(`  Team B: [${teamBPods.join(", ")}] → [${newTeamBPods.join(", ")}]`);
-      console.log(`  Sitting: [${sittingPods.join(", ")}] → [${newSittingPods.join(", ")}]\n`);
+      console.log(
+        `  Team A: [${teamAPods.join(", ")}] → [${newTeamAPods.join(", ")}]`
+      );
+      console.log(
+        `  Team B: [${teamBPods.join(", ")}] → [${newTeamBPods.join(", ")}]`
+      );
+      console.log(
+        `  Sitting: [${sittingPods.join(", ")}] → [${newSittingPods.join(", ")}]\n`
+      );
     }
 
     console.log("✅ All games updated successfully!");
