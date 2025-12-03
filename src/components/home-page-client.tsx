@@ -27,7 +27,7 @@ type RegistrationStatus = {
 export function HomePageClient() {
   // Start optimistically assuming registration is open
   const [registrationStatus, setRegistrationStatus] =
-    useState<RegistrationStatus>({ isOpen: true, podCount: 0, maxPods: 9 });
+    useState<RegistrationStatus>({ isOpen: true, podCount: 0, maxPods: 12 });
 
   useEffect(() => {
     async function fetchRegistrationStatus() {
@@ -38,7 +38,7 @@ export function HomePageClient() {
       } catch (error) {
         console.error("Error fetching registration status:", error);
         // Default to open if there's an error
-        setRegistrationStatus({ isOpen: true, podCount: 0, maxPods: 9 });
+        setRegistrationStatus({ isOpen: true, podCount: 0, maxPods: 12 });
       }
     }
 
@@ -101,8 +101,8 @@ export function HomePageClient() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <p className="font-medium">November 1st, 2025</p>
-                <p className="text-muted-foreground">10:00 AM - 2:00 PM</p>
+                <p className="font-medium">December 13th, 2025</p>
+                <p className="text-muted-foreground">10:00 AM - 4:00 PM</p>
                 <p className="text-muted-foreground text-sm">6 sets minimum.</p>
               </CardContent>
             </Card>
@@ -141,7 +141,7 @@ export function HomePageClient() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <p className="font-medium">$20 Registration Fee</p>
+                <p className="font-medium">$25 Registration Fee</p>
                 <p className="text-muted-foreground">
                   Winning team gets their registration fee back!
                 </p>
@@ -173,7 +173,7 @@ export function HomePageClient() {
               <Card>
                 <CardContent className="space-y-3">
                   <div>
-                    <p className="font-medium">9 Pods of 2 Players</p>
+                    <p className="font-medium">12 Pods of 2 Players</p>
                     <p className="text-muted-foreground text-sm">
                       18 total players divided into partnerships
                     </p>
@@ -187,7 +187,7 @@ export function HomePageClient() {
                   <div>
                     <p className="font-medium">Seeding by Point Differential</p>
                     <p className="text-muted-foreground text-sm">
-                      Pods ranked 1-9 after pool play
+                      Pods ranked 1-12 after pool play
                     </p>
                   </div>
                 </CardContent>
@@ -268,7 +268,7 @@ export function HomePageClient() {
         {/* Gradient fade overlay */}
         <div className="from-background to-background/80 pointer-events-none absolute inset-0 bg-linear-to-t via-transparent" />
 
-        <div className="container relative z-10 mx-auto px-4">
+        <div className="relative z-10 container mx-auto px-4">
           <div className="mx-auto">
             <h2 className="from-primary via-accent to-primary mb-12 bg-linear-to-r bg-clip-text text-5xl font-bold text-transparent md:text-8xl">
               Tournament Rules

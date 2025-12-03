@@ -267,7 +267,7 @@ export function RegistrationForm() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-3xl font-bold">$20</p>
+                  <p className="text-3xl font-bold">$25</p>
                 </div>
               </div>
 
@@ -314,7 +314,7 @@ export function RegistrationForm() {
               {/* Prize Reminder */}
               <div className="bg-primary/10 border-primary/20 rounded-lg border p-3">
                 <p className="text-sm">
-                  <strong>🏆 Winner gets their $20 back!</strong>
+                  <strong>🏆 Winner gets their $25 back!</strong>
                 </p>
               </div>
 
@@ -355,8 +355,8 @@ export function RegistrationForm() {
 
               {/* Email Warning */}
               {emailWarning && (
-                <div className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-900 rounded-lg border p-3 text-left">
-                  <p className="text-yellow-800 dark:text-yellow-200 text-sm">
+                <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-left dark:border-yellow-900 dark:bg-yellow-950/20">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
                     ⚠️ {emailWarning}
                   </p>
                 </div>

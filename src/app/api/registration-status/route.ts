@@ -9,7 +9,7 @@ export async function GET() {
     return NextResponse.json({
       isOpen: open,
       podCount: count,
-      maxPods: 9,
+      maxPods: 12,
     });
   } catch (error) {
     console.error("Error checking registration status:", error);
