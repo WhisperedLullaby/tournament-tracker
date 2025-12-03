@@ -11,9 +11,12 @@ import {
  * Should be called when pool play completes
  */
 export async function POST() {
+  // TODO: This will be updated in Phase 4 to accept tournamentId from request
+  const TEMP_TOURNAMENT_ID = 1;
+
   try {
     // Check if pool play is complete
-    const poolComplete = await isPoolPlayComplete();
+    const poolComplete = await isPoolPlayComplete(TEMP_TOURNAMENT_ID);
     if (!poolComplete) {
       return NextResponse.json(
         { error: "Pool play is not yet complete" },
@@ -22,10 +25,10 @@ export async function POST() {
     }
 
     // Create bracket teams from final standings
-    const teams = await createBracketTeamsFromStandings();
+    const teams = await createBracketTeamsFromStandings(TEMP_TOURNAMENT_ID);
 
     // Seed bracket matches
-    const matches = await seedBracketMatches();
+    const matches = await seedBracketMatches(TEMP_TOURNAMENT_ID);
 
     return NextResponse.json({
       success: true,

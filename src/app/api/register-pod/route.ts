@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { pods } from "@/lib/db/schema";
+import { pods, tournamentParticipants } from "@/lib/db/schema";
 import { isRegistrationOpen } from "@/lib/db/queries";
 import { Resend } from "resend";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+import { createClient } from "@/lib/auth/server";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 interface RegistrationData {
+  tournamentId: number;
   email: string;
   player1: string;
   player2: string;
@@ -37,23 +39,36 @@ async function verifyTurnstileToken(token: string): Promise<boolean> {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Authentication required. Please sign in with Google." },
+        { status: 401 }
+      );
+    }
+
     // Parse request body
     const body: RegistrationData = await request.json();
-    const { email, player1, player2, teamName, captchaToken } = body;
+    const { tournamentId, email, player1, player2, teamName, captchaToken } =
+      body;
 
     // Validate required fields
-    if (!email || !player1 || !player2 || !captchaToken) {
+    if (!tournamentId || !email || !player1 || !player2 || !captchaToken) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    // Validate email format
-    const emailRegex = /\S+@\S+\.\S+/;
-    if (!emailRegex.test(email)) {
+    // Ensure email matches authenticated user
+    if (email !== user.email) {
       return NextResponse.json(
-        { error: "Invalid email format" },
+        { error: "Email must match your authenticated account" },
         { status: 400 }
       );
     }
@@ -67,27 +82,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if registration is still open
-    const registrationOpen = await isRegistrationOpen();
+    // Check if registration is still open for this tournament
+    const registrationOpen = await isRegistrationOpen(tournamentId);
     if (!registrationOpen) {
       return NextResponse.json(
+        // TODO: Make this dynamic when multi-tournament support is added. should be all "X" spots have been filled. Different tournamanets have different number of teams.
         { error: "Registration is closed. All 9 spots have been filled." },
         { status: 400 }
       );
     }
 
-    // Check for duplicate email
+    // Check if user already registered for this tournament
     const existingPod = await db
       .select()
       .from(pods)
-      .where(eq(pods.email, email))
+      .where(and(eq(pods.userId, user.id), eq(pods.tournamentId, tournamentId)))
       .limit(1);
 
     if (existingPod.length > 0) {
       return NextResponse.json(
         {
           error:
-            "This email is already registered. Each pod must use a unique email address.",
+            "You have already registered for this tournament. Each user can only register one pod per tournament.",
         },
         { status: 400 }
       );
@@ -101,6 +117,8 @@ export async function POST(request: NextRequest) {
     const [newPod] = await db
       .insert(pods)
       .values({
+        tournamentId,
+        userId: user.id,
         email,
         name: podName,
         player1,
@@ -108,6 +126,13 @@ export async function POST(request: NextRequest) {
         teamName: teamName || null,
       })
       .returning();
+
+    // Create participant role for user in this tournament
+    await db.insert(tournamentParticipants).values({
+      userId: user.id,
+      tournamentId,
+      role: "participant",
+    });
 
     // Send confirmation email
     let emailSent = false;
@@ -151,7 +176,7 @@ export async function POST(request: NextRequest) {
                 <!-- Tournament Details -->
                 <h2 style="font-size: 20px; color: #727D73; margin-top: 30px; margin-bottom: 15px;">Tournament Details</h2>
                 <div style="font-size: 15px; line-height: 1.8;">
-                  <p style="margin: 8px 0;"><strong>📅 Date:</strong> Saturday, November 1st, 2025</p>
+                  <p style="margin: 8px 0;"><strong>📅 Date:</strong> Saturday, December 13th, 2025</p>
                   <p style="margin: 8px 0;"><strong>🕐 Time:</strong> 10:00 AM - 2:00 PM</p>
                   <p style="margin: 8px 0;">
                     <strong>📍 Location:</strong> All American FieldHouse<br>

@@ -7,20 +7,29 @@ import {
   getBracketTeams,
   getAllPods,
   adaptCombinedNamesToFirstNames,
+  getTournamentBySlug,
 } from "@/lib/db/queries";
 import type { BracketMatch, BracketTeam } from "@/lib/db/schema";
+import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function StandingsPage() {
-  // TODO: This page will be migrated in Phase 4 to use tournament context
-  // Temporarily using tournament ID 1
-  const TEMP_TOURNAMENT_ID = 1;
+export default async function TournamentStandingsPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const tournament = await getTournamentBySlug(slug);
+
+  if (!tournament) {
+    notFound();
+  }
 
   const [standings, matchLog, poolComplete] = await Promise.all([
-    getPoolStandings(TEMP_TOURNAMENT_ID),
-    getPoolMatchesLog(TEMP_TOURNAMENT_ID),
-    isPoolPlayComplete(TEMP_TOURNAMENT_ID),
+    getPoolStandings(tournament.id),
+    getPoolMatchesLog(tournament.id),
+    isPoolPlayComplete(tournament.id),
   ]);
 
   // Fetch bracket data if pool play is complete
@@ -30,12 +39,12 @@ export default async function StandingsPage() {
 
   if (poolComplete) {
     [bracketMatches, bracketTeams] = await Promise.all([
-      getBracketMatches(TEMP_TOURNAMENT_ID),
-      getBracketTeams(TEMP_TOURNAMENT_ID),
+      getBracketMatches(tournament.id),
+      getBracketTeams(tournament.id),
     ]);
 
     // Get all pods for name mapping
-    const pods = await getAllPods(TEMP_TOURNAMENT_ID);
+    const pods = await getAllPods(tournament.id);
     pods.forEach((pod) => {
       const displayName = pod.teamName
         ? pod.teamName

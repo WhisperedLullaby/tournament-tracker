@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { isRegistrationOpen, getPodCount } from "@/lib/db/queries";
 
 export async function GET() {
+  // TODO: This will be updated in Phase 4 to accept tournamentId parameter
+  const TEMP_TOURNAMENT_ID = 1;
+
   try {
-    const open = await isRegistrationOpen();
-    const count = await getPodCount();
+    const open = await isRegistrationOpen(TEMP_TOURNAMENT_ID);
+    const count = await getPodCount(TEMP_TOURNAMENT_ID);
 
     return NextResponse.json({
       isOpen: open,

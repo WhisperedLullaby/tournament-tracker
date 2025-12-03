@@ -6,25 +6,35 @@ import {
   isPoolPlayComplete,
   getBracketMatches,
   getBracketTeams,
+  getTournamentBySlug,
 } from "@/lib/db/queries";
 import { db } from "@/lib/db";
 import { pods, type BracketMatch, type BracketTeam } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function SchedulePage() {
-  // TODO: This page will be migrated in Phase 4 to use tournament context
-  // Temporarily using tournament ID 1
-  const TEMP_TOURNAMENT_ID = 1;
+export default async function TournamentSchedulePage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const tournament = await getTournamentBySlug(slug);
+
+  if (!tournament) {
+    notFound();
+  }
 
   // Fetch all data in parallel
   const [currentMatches, nextGame, allMatches, allPods, poolComplete] =
     await Promise.all([
-      getCurrentMatches(TEMP_TOURNAMENT_ID),
-      getNextPendingGame(TEMP_TOURNAMENT_ID),
-      getAllPoolMatches(TEMP_TOURNAMENT_ID),
-      db.select().from(pods),
-      isPoolPlayComplete(TEMP_TOURNAMENT_ID),
+      getCurrentMatches(tournament.id),
+      getNextPendingGame(tournament.id),
+      getAllPoolMatches(tournament.id),
+      db.select().from(pods).where(eq(pods.tournamentId, tournament.id)),
+      isPoolPlayComplete(tournament.id),
     ]);
 
   // Get the current in-progress match (should only be one)
@@ -36,8 +46,8 @@ export default async function SchedulePage() {
 
   if (poolComplete) {
     [bracketMatches, bracketTeams] = await Promise.all([
-      getBracketMatches(TEMP_TOURNAMENT_ID),
-      getBracketTeams(TEMP_TOURNAMENT_ID),
+      getBracketMatches(tournament.id),
+      getBracketTeams(tournament.id),
     ]);
   }
 
