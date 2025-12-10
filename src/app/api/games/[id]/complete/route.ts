@@ -74,7 +74,7 @@ export async function POST(
     // Update pool standings for all involved pods
     const teamAPods = game.teamAPods as number[];
     const teamBPods = game.teamBPods as number[];
-    await updatePoolStandings(teamAPods, teamBPods, teamAScore, teamBScore);
+    await updatePoolStandings(game.tournamentId, teamAPods, teamBPods, teamAScore, teamBScore);
 
     // Fetch the updated game
     const updatedGames = await db

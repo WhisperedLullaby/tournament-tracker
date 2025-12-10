@@ -1,112 +1,146 @@
 "use client";
 
 import { useTournament } from "@/contexts/tournament-context";
+import { Navigation } from "@/components/navigation";
+import { Footer } from "@/components/footer";
+import { HeroGeometric } from "@/components/hero-geometric";
+import { RegistrationForm } from "@/components/registration-form";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import Link from "next/link";
+import { TournamentDetailsSection } from "@/components/sections/tournament-details-section";
+import { TournamentFormatSection } from "@/components/sections/tournament-format-section";
+import { TournamentRulesSection } from "@/components/sections/tournament-rules-section";
+import { TournamentCTASection } from "@/components/sections/tournament-cta-section";
+import { QuickActionsSubFooter } from "@/components/sections/quick-actions-subfooter";
+import { useState, useEffect } from "react";
 
 export default function TournamentPage() {
   const { tournament, userRole, isLoading } = useTournament();
+  const [registrationStatus, setRegistrationStatus] = useState<{
+    isOpen: boolean;
+    podCount: number;
+  }>({ isOpen: true, podCount: 0 });
+
+  useEffect(() => {
+    if (tournament) {
+      // Fetch pod count from API for this tournament
+      fetch(`/api/tournaments/${tournament.id}/pods-count`)
+        .then(res => res.json())
+        .then(data => {
+          setRegistrationStatus({
+            isOpen: data.count < tournament.maxPods && tournament.status === "upcoming",
+            podCount: data.count,
+          });
+        })
+        .catch(() => {
+          // Fallback: assume registration is based on status only
+          setRegistrationStatus({
+            isOpen: tournament.status === "upcoming",
+            podCount: 0,
+          });
+        });
+    }
+  }, [tournament]);
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return (
+      <>
+        <Navigation />
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+        <Footer />
+      </>
+    );
   }
 
+  const badgeText = registrationStatus.isOpen
+    ? "Registration Open"
+    : "Registration Closed";
+
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Tournament Description */}
-      {tournament.description && (
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-3">About This Tournament</h2>
-          <p className="text-gray-700">{tournament.description}</p>
-        </div>
-      )}
+    <div className="flex min-h-screen flex-col">
+      <Navigation />
 
-      {/* Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-6">
-        <Link
-          href={`/tournaments/${tournament.slug}/standings`}
-          className="p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
-        >
-          <div className="text-3xl mb-2">🏆</div>
-          <h3 className="font-semibold">Standings</h3>
-          <p className="text-sm text-gray-600 mt-1">View current rankings</p>
-        </Link>
+      {/* Hero Section with Registration Form */}
+      <HeroGeometric
+        badge={badgeText}
+        title1={tournament.name}
+        title2=""
+        description={
+          tournament.description ||
+          "Inviting volleyball players of all skill levels to connect, play, and compete!"
+        }
+        rightContent={
+          registrationStatus.isOpen && !userRole ? (
+            <RegistrationForm tournament={tournament} />
+          ) : (
+            <Card className="border-primary/20 bg-card/90 w-full max-w-md shadow-xl backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="text-2xl">
+                  {userRole ? "You're Registered!" : "Registration Closed"}
+                </CardTitle>
+                <CardDescription>
+                  {userRole
+                    ? "You're all set for the tournament!"
+                    : `All ${tournament.maxPods} spots have been filled!`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground mb-4">
+                  {userRole
+                    ? "Check the schedule and standings to prepare for tournament day."
+                    : `Thank you for your interest. The tournament is now full with ${registrationStatus.podCount} registered pods.`}
+                </p>
+                <Button className="w-full" asChild>
+                  <Link
+                    href={`/tournaments/${tournament.slug}/${userRole ? "schedule" : "standings"}`}
+                  >
+                    {userRole ? "View Schedule" : "View Registered Teams"}
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )
+        }
+      />
 
-        <Link
-          href={`/tournaments/${tournament.slug}/schedule`}
-          className="p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
-        >
-          <div className="text-3xl mb-2">📅</div>
-          <h3 className="font-semibold">Schedule</h3>
-          <p className="text-sm text-gray-600 mt-1">View match schedule</p>
-        </Link>
+      {/* Tournament Details Section */}
+      <TournamentDetailsSection
+        date={tournament.date}
+        location={tournament.location}
+        maxPods={tournament.maxPods}
+        registrationDeadline={tournament.registrationDeadline}
+      />
 
-        {tournament.status !== "upcoming" && (
-          <Link
-            href={`/tournaments/${tournament.slug}/bracket`}
-            className="p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
-          >
-            <div className="text-3xl mb-2">🎯</div>
-            <h3 className="font-semibold">Bracket</h3>
-            <p className="text-sm text-gray-600 mt-1">
-              View elimination bracket
-            </p>
-          </Link>
-        )}
+      {/* Tournament Format Section */}
+      <TournamentFormatSection />
 
-        {tournament.status === "upcoming" && !userRole && (
-          <Link
-            href={`/tournaments/${tournament.slug}/register`}
-            className="p-6 bg-blue-50 border-2 border-blue-500 rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
-          >
-            <div className="text-3xl mb-2">✍️</div>
-            <h3 className="font-semibold text-blue-900">Register</h3>
-            <p className="text-sm text-blue-700 mt-1">Sign up your team</p>
-          </Link>
-        )}
+      {/* Tournament Rules Section */}
+      <TournamentRulesSection />
 
-        {userRole === "organizer" && (
-          <Link
-            href={`/tournaments/${tournament.slug}/scorekeeper`}
-            className="p-6 bg-purple-50 border-2 border-purple-500 rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
-          >
-            <div className="text-3xl mb-2">📊</div>
-            <h3 className="font-semibold text-purple-900">Scorekeeper</h3>
-            <p className="text-sm text-purple-700 mt-1">Manage scores</p>
-          </Link>
-        )}
-      </div>
+      {/* CTA Section */}
+      <TournamentCTASection
+        tournamentSlug={tournament.slug}
+        tournamentStatus={tournament.status as "upcoming" | "active" | "completed"}
+        userRole={userRole}
+      />
 
-      {/* User Status */}
-      {userRole && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <p className="text-blue-900">
-            <strong>Your Role:</strong>{" "}
-            {userRole === "organizer" ? "Tournament Organizer" : "Participant"}
-          </p>
-        </div>
-      )}
+      {/* Quick Actions Sub-Footer */}
+      <QuickActionsSubFooter
+        tournamentSlug={tournament.slug}
+        tournamentStatus={tournament.status as "upcoming" | "active" | "completed"}
+        userRole={userRole}
+      />
 
-      {/* Registration Info */}
-      {tournament.status === "upcoming" && (
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-xl font-semibold mb-3">Registration</h2>
-          {tournament.registrationOpenDate && (
-            <p className="text-gray-700 mb-2">
-              <strong>Opens:</strong>{" "}
-              {new Date(tournament.registrationOpenDate).toLocaleDateString()}
-            </p>
-          )}
-          {tournament.registrationDeadline && (
-            <p className="text-gray-700 mb-2">
-              <strong>Deadline:</strong>{" "}
-              {new Date(tournament.registrationDeadline).toLocaleDateString()}
-            </p>
-          )}
-          <p className="text-gray-600 mt-4">
-            Maximum {tournament.maxPods} teams can register for this tournament.
-          </p>
-        </div>
-      )}
+      <Footer />
     </div>
   );
 }

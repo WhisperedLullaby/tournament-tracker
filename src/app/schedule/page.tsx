@@ -1,55 +1,6 @@
-import { SchedulePageClient } from "@/components/schedule-page-client";
-import {
-  getCurrentMatches,
-  getNextPendingGame,
-  getAllPoolMatches,
-  isPoolPlayComplete,
-  getBracketMatches,
-  getBracketTeams,
-} from "@/lib/db/queries";
-import { db } from "@/lib/db";
-import { pods, type BracketMatch, type BracketTeam } from "@/lib/db/schema";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default async function SchedulePage() {
-  // TODO: This page will be migrated in Phase 4 to use tournament context
-  // Temporarily using tournament ID 1
-  const TEMP_TOURNAMENT_ID = 1;
-
-  // Fetch all data in parallel
-  const [currentMatches, nextGame, allMatches, allPods, poolComplete] =
-    await Promise.all([
-      getCurrentMatches(TEMP_TOURNAMENT_ID),
-      getNextPendingGame(TEMP_TOURNAMENT_ID),
-      getAllPoolMatches(TEMP_TOURNAMENT_ID),
-      db.select().from(pods),
-      isPoolPlayComplete(TEMP_TOURNAMENT_ID),
-    ]);
-
-  // Get the current in-progress match (should only be one)
-  const currentMatch = currentMatches[0] || null;
-
-  // Fetch bracket data if pool play is complete
-  let bracketMatches: BracketMatch[] = [];
-  let bracketTeams: BracketTeam[] = [];
-
-  if (poolComplete) {
-    [bracketMatches, bracketTeams] = await Promise.all([
-      getBracketMatches(TEMP_TOURNAMENT_ID),
-      getBracketTeams(TEMP_TOURNAMENT_ID),
-    ]);
-  }
-
-  return (
-    <SchedulePageClient
-      currentMatch={currentMatch}
-      nextGame={nextGame}
-      allMatches={allMatches}
-      allPods={allPods}
-      isPoolPlayComplete={poolComplete}
-      bracketMatches={bracketMatches}
-      bracketTeams={bracketTeams}
-    />
-  );
+export default function SchedulePage() {
+  // Redirect to tournaments - user needs to select a specific tournament
+  redirect("/tournaments");
 }

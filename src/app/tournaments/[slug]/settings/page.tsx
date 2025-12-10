@@ -1,36 +1,36 @@
 "use client";
 
 import { useTournament } from "@/contexts/tournament-context";
-import { redirect } from "next/navigation";
+import { TournamentSettingsForm } from "@/components/tournament-settings-form";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function SettingsPage() {
+  const router = useRouter();
   const { tournament, isOrganizer, isLoading } = useTournament();
 
+  useEffect(() => {
+    // Redirect non-organizers
+    if (!isLoading && !isOrganizer) {
+      router.push(`/tournaments/${tournament.slug}`);
+    }
+  }, [isLoading, isOrganizer, tournament.slug, router]);
+
   if (isLoading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
   }
 
   if (!isOrganizer) {
-    // Only organizers can access settings
-    redirect(`/tournaments/${tournament.slug}`);
+    return null; // Will redirect via useEffect
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">Tournament Settings</h1>
-
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <p className="text-gray-600 mb-4">
-          Settings page will be implemented in Phase 5.
-        </p>
-
-        {/* TODO: Add tournament management features
-          - Edit tournament details
-          - Update status (upcoming → active → completed)
-          - Manage participants
-          - Delete tournament (with confirmation)
-        */}
-      </div>
+    <div className="max-w-3xl mx-auto">
+      <TournamentSettingsForm tournament={tournament} />
     </div>
   );
 }

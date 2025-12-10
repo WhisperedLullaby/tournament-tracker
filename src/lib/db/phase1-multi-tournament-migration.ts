@@ -21,8 +21,8 @@ import { db } from "./index";
 import { sql } from "drizzle-orm";
 
 // IMPORTANT: Update these with your actual values
-const ADMIN_USER_ID = "a5ae2062-ce59-4b42-9a5a-ebc0040dd35d"; // Get from Supabase Auth dashboard
-const ADMIN_EMAIL = "agnone.anthony@gmail.com"; // Your Google account email
+const ADMIN_USER_ID: string = "a5ae2062-ce59-4b42-9a5a-ebc0040dd35d"; // Get from Supabase Auth dashboard
+const ADMIN_EMAIL: string = "agnone.anthony@gmail.com"; // Your Google account email
 
 async function runMigration() {
   console.log("🚀 Starting Phase 1: Multi-Tournament Platform Migration\n");

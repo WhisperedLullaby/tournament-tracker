@@ -14,7 +14,7 @@ type GameMatch = PoolMatch | (BracketMatch & { isBracket: true });
 
 export default function TournamentScorekeeperPage() {
   const router = useRouter();
-  const { tournament, isLoading: tournamentLoading } = useTournament();
+  const { tournament } = useTournament();
   const [currentGame, setCurrentGame] = useState<GameMatch | null>(null);
   const [nextGame, setNextGame] = useState<GameMatch | null>(null);
   const [loading, setLoading] = useState(true);
@@ -220,6 +220,7 @@ export default function TournamentScorekeeperPage() {
   // Map database row to BracketMatch type
   const mapToBracketMatch = (row: {
     id: number;
+    tournament_id: number;
     game_number: number;
     bracket_type: "winners" | "losers" | "championship";
     team_a_id: number | null;
@@ -231,6 +232,7 @@ export default function TournamentScorekeeperPage() {
     updated_at: string;
   }): BracketMatch => ({
     id: row.id,
+    tournamentId: row.tournament_id,
     gameNumber: row.game_number,
     bracketType: row.bracket_type,
     teamAId: row.team_a_id,
@@ -245,6 +247,7 @@ export default function TournamentScorekeeperPage() {
   // Map database row to PoolMatch type
   const mapToPoolMatch = (row: {
     id: number;
+    tournament_id: number;
     game_number: number;
     round_number: number;
     scheduled_time: string | null;
@@ -259,6 +262,7 @@ export default function TournamentScorekeeperPage() {
     updated_at: string;
   }): PoolMatch => ({
     id: row.id,
+    tournamentId: row.tournament_id,
     gameNumber: row.game_number,
     roundNumber: row.round_number,
     scheduledTime: row.scheduled_time,
@@ -303,6 +307,8 @@ export default function TournamentScorekeeperPage() {
 
       const response = await fetch(endpoint, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tournamentId: tournament.id }),
       });
 
       if (!response.ok) {
@@ -390,6 +396,8 @@ export default function TournamentScorekeeperPage() {
         try {
           const bracketResponse = await fetch("/api/bracket/initialize", {
             method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tournamentId: tournament.id }),
           });
 
           if (!bracketResponse.ok) {

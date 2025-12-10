@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { pods, tournamentParticipants } from "@/lib/db/schema";
+import { pods, tournamentRoles } from "@/lib/db/schema";
 import { isRegistrationOpen } from "@/lib/db/queries";
 import { Resend } from "resend";
 import { eq, and } from "drizzle-orm";
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
       .returning();
 
     // Create participant role for user in this tournament
-    await db.insert(tournamentParticipants).values({
+    await db.insert(tournamentRoles).values({
       userId: user.id,
       tournamentId,
       role: "participant",

@@ -74,12 +74,9 @@ export async function POST(
       })
       .where(eq(bracketMatches.id, gameId));
 
-    // TODO: This will be updated in Phase 4 to use game.tournamentId
-    const TEMP_TOURNAMENT_ID = 1;
-
     // Advance teams to next round
     await advanceBracketTeams(
-      TEMP_TOURNAMENT_ID,
+      game.tournamentId,
       game.gameNumber,
       winnerId,
       loserId

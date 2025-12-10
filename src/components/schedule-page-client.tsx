@@ -77,6 +77,7 @@ export function SchedulePageClient({
         const mappedMatches: PoolMatch[] = matches.map(
           (m: {
             id: number;
+            tournament_id: number;
             game_number: number;
             round_number: number;
             scheduled_time: string | null;
@@ -91,6 +92,7 @@ export function SchedulePageClient({
             updated_at: string;
           }) => ({
           id: m.id,
+          tournamentId: m.tournament_id,
           gameNumber: m.game_number,
           roundNumber: m.round_number,
           scheduledTime: m.scheduled_time,

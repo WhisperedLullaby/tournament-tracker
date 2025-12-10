@@ -782,6 +782,50 @@ export async function getUserTournaments(userId: string) {
 }
 
 /**
+ * Get tournaments where user is an organizer
+ * @param userId - The user's ID
+ * @returns Array of tournaments with pod counts
+ */
+export async function getOrganizerTournaments(userId: string) {
+  try {
+    const result = await db
+      .select({
+        id: tournaments.id,
+        name: tournaments.name,
+        slug: tournaments.slug,
+        date: tournaments.date,
+        location: tournaments.location,
+        description: tournaments.description,
+        status: tournaments.status,
+        maxPods: tournaments.maxPods,
+        registrationDeadline: tournaments.registrationDeadline,
+        registrationOpenDate: tournaments.registrationOpenDate,
+        isPublic: tournaments.isPublic,
+        createdBy: tournaments.createdBy,
+        createdAt: tournaments.createdAt,
+        updatedAt: tournaments.updatedAt,
+      })
+      .from(tournaments)
+      .innerJoin(
+        tournamentRoles,
+        eq(tournaments.id, tournamentRoles.tournamentId)
+      )
+      .where(
+        and(
+          eq(tournamentRoles.userId, userId),
+          eq(tournamentRoles.role, "organizer")
+        )
+      )
+      .orderBy(desc(tournaments.date));
+
+    return result;
+  } catch (error) {
+    console.error("Error fetching organizer tournaments:", error);
+    return [];
+  }
+}
+
+/**
  * Check if user is a whitelisted organizer
  * @param userId - The user's ID
  * @returns True if user is whitelisted
