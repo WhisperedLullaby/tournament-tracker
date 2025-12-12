@@ -14,6 +14,8 @@ interface UpdateTournamentData {
   registrationOpenDate?: string;
   isPublic?: boolean;
   status?: "upcoming" | "active" | "completed";
+  poolPlayDescription?: string;
+  bracketPlayDescription?: string;
 }
 
 export async function PATCH(
@@ -71,6 +73,8 @@ export async function PATCH(
       registrationOpenDate,
       isPublic,
       status,
+      poolPlayDescription,
+      bracketPlayDescription,
     } = body;
 
     // Validate maxPods if provided
@@ -99,6 +103,10 @@ export async function PATCH(
         : null;
     if (isPublic !== undefined) updateData.isPublic = isPublic;
     if (status !== undefined) updateData.status = status;
+    if (poolPlayDescription !== undefined)
+      updateData.poolPlayDescription = poolPlayDescription || null;
+    if (bracketPlayDescription !== undefined)
+      updateData.bracketPlayDescription = bracketPlayDescription || null;
 
     // Update tournament
     const [updatedTournament] = await db
@@ -126,6 +134,79 @@ export async function PATCH(
       {
         error:
           "An unexpected error occurred while updating the tournament. Please try again.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ tournamentId: string }> }
+) {
+  try {
+    const { tournamentId } = await params;
+    const tournamentIdNum = parseInt(tournamentId);
+
+    if (isNaN(tournamentIdNum)) {
+      return NextResponse.json(
+        { error: "Invalid tournament ID" },
+        { status: 400 }
+      );
+    }
+
+    // Check authentication
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    // Check if user is organizer of this tournament
+    const participantRole = await db.query.tournamentRoles.findFirst({
+      where: and(
+        eq(tournamentRoles.userId, user.id),
+        eq(tournamentRoles.tournamentId, tournamentIdNum)
+      ),
+    });
+
+    if (!participantRole || participantRole.role !== "organizer") {
+      return NextResponse.json(
+        { error: "Not authorized to delete this tournament" },
+        { status: 403 }
+      );
+    }
+
+    // Delete tournament (CASCADE will delete related records via schema definition)
+    const [deletedTournament] = await db
+      .delete(tournaments)
+      .where(eq(tournaments.id, tournamentIdNum))
+      .returning();
+
+    if (!deletedTournament) {
+      return NextResponse.json(
+        { error: "Tournament not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Tournament deleted successfully!",
+    });
+  } catch (error) {
+    console.error("Tournament deletion error:", error);
+
+    return NextResponse.json(
+      {
+        error:
+          "An unexpected error occurred while deleting the tournament. Please try again.",
       },
       { status: 500 }
     );

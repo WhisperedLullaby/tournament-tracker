@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getUserTournamentRole, getTournamentBySlug } from "@/lib/db/queries";
 import { createClient } from "@/lib/auth/server";
+import { db } from "@/lib/db";
+import { pods } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
 
 export async function GET(
   request: Request,
@@ -42,7 +45,18 @@ export async function GET(
 
     const role = await getUserTournamentRole(currentUserId, tournamentIdNum);
 
-    return NextResponse.json({ role });
+    // Check if user has registered a team/pod
+    const userPod = await db.query.pods.findFirst({
+      where: and(
+        eq(pods.userId, currentUserId),
+        eq(pods.tournamentId, tournamentIdNum)
+      ),
+    });
+
+    return NextResponse.json({
+      role,
+      hasRegisteredTeam: !!userPod,
+    });
   } catch (error) {
     console.error("Error fetching user tournament role:", error);
     return NextResponse.json(

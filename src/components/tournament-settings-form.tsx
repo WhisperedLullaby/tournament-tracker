@@ -32,6 +32,8 @@ type FormData = {
   registrationOpenDate: string;
   isPublic: boolean;
   status: "upcoming" | "active" | "completed";
+  poolPlayDescription: string;
+  bracketPlayDescription: string;
 };
 
 export function TournamentSettingsForm({
@@ -41,6 +43,8 @@ export function TournamentSettingsForm({
 }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     name: tournament.name,
     date: tournament.date.toISOString().split("T")[0],
@@ -55,6 +59,8 @@ export function TournamentSettingsForm({
       : "",
     isPublic: tournament.isPublic,
     status: tournament.status,
+    poolPlayDescription: tournament.poolPlayDescription || "",
+    bracketPlayDescription: tournament.bracketPlayDescription || "",
   });
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>(
     {}
@@ -115,6 +121,32 @@ export function TournamentSettingsForm({
       alert("An unexpected error occurred. Please try again.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/tournaments/${tournament.id}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || "Failed to delete tournament");
+        return;
+      }
+
+      // Success! Redirect to tournaments page
+      router.push("/tournaments");
+      alert("Tournament deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting tournament:", error);
+      alert("An unexpected error occurred. Please try again.");
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -206,6 +238,42 @@ export function TournamentSettingsForm({
                   {errors.location}
                 </p>
               )}
+            </div>
+          </div>
+
+          {/* Tournament Format */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Tournament Format</h3>
+            <p className="text-muted-foreground text-sm">
+              Customize the Pool Play and Bracket Play descriptions shown on your tournament page.
+            </p>
+
+            <div>
+              <Label htmlFor="poolPlayDescription">Pool Play Description</Label>
+              <Textarea
+                id="poolPlayDescription"
+                placeholder="Describe pool play format..."
+                value={formData.poolPlayDescription}
+                onChange={(e) => updateField("poolPlayDescription", e.target.value)}
+                rows={5}
+              />
+              <p className="text-muted-foreground mt-1 text-xs">
+                Leave blank to use default content based on tournament type
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="bracketPlayDescription">Bracket Play Description</Label>
+              <Textarea
+                id="bracketPlayDescription"
+                placeholder="Describe bracket play format..."
+                value={formData.bracketPlayDescription}
+                onChange={(e) => updateField("bracketPlayDescription", e.target.value)}
+                rows={5}
+              />
+              <p className="text-muted-foreground mt-1 text-xs">
+                Leave blank to use default content based on tournament type
+              </p>
             </div>
           </div>
 
@@ -320,6 +388,56 @@ export function TournamentSettingsForm({
             </Button>
           </div>
         </form>
+
+        {/* Danger Zone */}
+        <div className="mt-8 pt-8 border-t border-destructive/30">
+          <h3 className="text-lg font-semibold text-destructive mb-2">
+            Danger Zone
+          </h3>
+          <p className="text-muted-foreground text-sm mb-4">
+            Once you delete a tournament, there is no going back. All registrations,
+            matches, and standings will be permanently deleted.
+          </p>
+
+          {!showDeleteConfirm ? (
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={isSubmitting || isDeleting}
+            >
+              Delete Tournament
+            </Button>
+          ) : (
+            <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4">
+              <p className="font-semibold mb-3">
+                Are you absolutely sure you want to delete &quot;{tournament.name}&quot;?
+              </p>
+              <p className="text-sm text-muted-foreground mb-4">
+                This action cannot be undone. This will permanently delete the tournament
+                and all associated data.
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "Deleting..." : "Yes, Delete Tournament"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

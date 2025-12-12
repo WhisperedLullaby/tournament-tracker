@@ -20,7 +20,8 @@ type PodData = {
   teamName: string | null;
   playerNames: string;
   player1: string;
-  player2: string;
+  player2: string | null;
+  player3?: string | null;
 };
 
 /**
@@ -65,7 +66,7 @@ export async function getAllPods(tournamentId: number): Promise<PodData[]> {
           ...pod,
           podId: translatedPodNumber ?? pod.podId, // Fallback to original ID if translation fails
           player1: _adaptPlayerNameToFirstName(pod.player1),
-          player2: _adaptPlayerNameToFirstName(pod.player2),
+          player2: pod.player2 ? _adaptPlayerNameToFirstName(pod.player2) : null,
           playerNames: _adaptCombinedNamesToFirstNames(pod.playerNames),
         };
       })
@@ -128,7 +129,7 @@ export async function getPoolStandings(tournamentId: number) {
     const adaptedStandings = standings.map((standing) => ({
       ...standing,
       player1: _adaptPlayerNameToFirstName(standing.player1),
-      player2: _adaptPlayerNameToFirstName(standing.player2),
+      player2: standing.player2 ? _adaptPlayerNameToFirstName(standing.player2) : null,
       playerNames: _adaptCombinedNamesToFirstNames(standing.playerNames),
     }));
 
@@ -757,7 +758,16 @@ export async function getUserTournaments(userId: string) {
         location: tournaments.location,
         description: tournaments.description,
         status: tournaments.status,
+        tournamentType: tournaments.tournamentType,
+        bracketStyle: tournaments.bracketStyle,
+        level: tournaments.level,
         maxPods: tournaments.maxPods,
+        maxTeams: tournaments.maxTeams,
+        scoringRules: tournaments.scoringRules,
+        poolPlayDescription: tournaments.poolPlayDescription,
+        bracketPlayDescription: tournaments.bracketPlayDescription,
+        rulesDescription: tournaments.rulesDescription,
+        prizeInfo: tournaments.prizeInfo,
         registrationDeadline: tournaments.registrationDeadline,
         registrationOpenDate: tournaments.registrationOpenDate,
         isPublic: tournaments.isPublic,

@@ -16,7 +16,8 @@ type StandingsData = {
   teamName: string | null;
   playerNames: string;
   player1: string;
-  player2: string;
+  player2: string | null;
+  player3?: string | null;
   wins: number;
   losses: number;
   pointsFor: number;

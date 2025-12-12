@@ -9,7 +9,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 export default function RegisterPage() {
-  const { tournament, userRole, isLoading } = useTournament();
+  const { tournament, userRole, hasRegisteredTeam, isLoading } = useTournament();
 
   if (isLoading) {
     return (
@@ -46,13 +46,13 @@ export default function RegisterPage() {
             Back to Tournament Overview
           </Link>
 
-          {userRole ? (
+          {hasRegisteredTeam ? (
             <div className="max-w-2xl mx-auto">
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
                 <h2 className="text-xl font-semibold mb-2">Already Registered</h2>
                 <p className="text-gray-700">
-                  You are already registered for this tournament as a{" "}
-                  {userRole === "organizer" ? "tournament organizer" : "participant"}.
+                  You have already registered a team for this tournament.
+                  {userRole === "organizer" && " As an organizer, you can view your team in the Teams page."}
                 </p>
               </div>
             </div>

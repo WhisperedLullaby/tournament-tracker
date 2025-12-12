@@ -118,13 +118,18 @@ export default function TournamentPage() {
         location={tournament.location}
         maxPods={tournament.maxPods}
         registrationDeadline={tournament.registrationDeadline}
+        prizeInfo={tournament.prizeInfo}
       />
 
       {/* Tournament Format Section */}
-      <TournamentFormatSection />
+      <TournamentFormatSection
+        poolPlayDescription={tournament.poolPlayDescription}
+        bracketPlayDescription={tournament.bracketPlayDescription}
+        tournamentType={tournament.tournamentType}
+      />
 
       {/* Tournament Rules Section */}
-      <TournamentRulesSection />
+      <TournamentRulesSection rulesDescription={tournament.rulesDescription} />
 
       {/* CTA Section */}
       <TournamentCTASection

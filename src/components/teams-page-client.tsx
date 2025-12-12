@@ -11,7 +11,8 @@ type PodData = {
   teamName: string | null;
   playerNames: string;
   player1: string;
-  player2: string;
+  player2: string | null;
+  player3?: string | null;
 };
 
 interface TeamsPageClientProps {
@@ -53,7 +54,14 @@ export function TeamsPageClient({ podData }: TeamsPageClientProps) {
                 </div>
                 <div>
                   <p className="text-muted-foreground text-sm">Total Players</p>
-                  <p className="text-2xl font-bold">{podData.length * 2}</p>
+                  <p className="text-2xl font-bold">
+                    {podData.reduce((count, pod) => {
+                      let players = 1; // player1 always exists
+                      if (pod.player2) players++;
+                      if (pod.player3) players++;
+                      return count + players;
+                    }, 0)}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -84,10 +92,18 @@ export function TeamsPageClient({ podData }: TeamsPageClientProps) {
                         <div className="bg-primary/10 h-2 w-2 rounded-full" />
                         <p className="text-sm">{pod.player1}</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="bg-primary/10 h-2 w-2 rounded-full" />
-                        <p className="text-sm">{pod.player2}</p>
-                      </div>
+                      {pod.player2 && (
+                        <div className="flex items-center gap-2">
+                          <div className="bg-primary/10 h-2 w-2 rounded-full" />
+                          <p className="text-sm">{pod.player2}</p>
+                        </div>
+                      )}
+                      {pod.player3 && (
+                        <div className="flex items-center gap-2">
+                          <div className="bg-primary/10 h-2 w-2 rounded-full" />
+                          <p className="text-sm">{pod.player3}</p>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

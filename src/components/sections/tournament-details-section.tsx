@@ -11,11 +11,13 @@ interface TournamentDetailsSectionProps {
   location?: string | null;
   maxPods: number;
   registrationDeadline?: Date | null;
+  prizeInfo?: string | null;
 }
 
 export function TournamentDetailsSection({
   date,
   location,
+  prizeInfo,
 }: TournamentDetailsSectionProps) {
   return (
     <section className="py-16 md:py-24">
@@ -78,17 +80,35 @@ export function TournamentDetailsSection({
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Trophy className="text-accent h-5 w-5" />
-                Winner Takes All
+                Prizes
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <p className="font-medium">$20 Registration Fee</p>
-              <p className="text-muted-foreground">
-                Winning team gets their registration fee back!
-              </p>
-              <p className="text-muted-foreground text-sm">
-                Play for free and bragging rights
-              </p>
+              {prizeInfo ? (
+                <div className="prose prose-sm max-w-none">
+                  {prizeInfo.split('\n').map((line, i) => {
+                    // Check if line starts with ** for bold formatting
+                    if (line.startsWith('**') && line.includes('**', 2)) {
+                      const match = line.match(/\*\*(.+?)\*\*/);
+                      if (match) {
+                        return <p key={i} className="font-semibold">{match[1]}</p>;
+                      }
+                    }
+                    // Regular line
+                    return line.trim() ? <p key={i}>{line}</p> : <br key={i} />;
+                  })}
+                </div>
+              ) : (
+                <>
+                  <p className="font-medium">$20 Registration Fee</p>
+                  <p className="text-muted-foreground">
+                    Winning team gets their registration fee back!
+                  </p>
+                  <p className="text-muted-foreground text-sm">
+                    Play for free and bragging rights
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

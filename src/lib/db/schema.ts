@@ -35,6 +35,24 @@ export const tournamentRoleEnum = pgEnum("tournament_role", [
   "participant",
 ]);
 
+export const tournamentTypeEnum = pgEnum("tournament_type", [
+  "pod_2", // 2-player pods (current default)
+  "pod_3", // 3-player pods
+  "set_teams", // Pre-formed teams (captain + up to 8 players)
+]);
+
+export const tournamentBracketStyleEnum = pgEnum("tournament_bracket_style", [
+  "single_elimination",
+  "double_elimination",
+]);
+
+export const tournamentLevelEnum = pgEnum("tournament_level", [
+  "c",
+  "b",
+  "a",
+  "open",
+]);
+
 // Tournaments table - supports multiple tournaments
 export const tournaments = pgTable("tournaments", {
   id: serial("id").primaryKey(),
@@ -44,7 +62,29 @@ export const tournaments = pgTable("tournaments", {
   location: text("location"), // "All American FieldHouse, Monroeville, PA"
   description: text("description"), // Tournament description/rules
   status: tournamentStatusEnum("status").default("upcoming").notNull(),
-  maxPods: integer("max_pods").default(9).notNull(),
+
+  // Tournament configuration
+  tournamentType: tournamentTypeEnum("tournament_type").default("pod_2").notNull(),
+  bracketStyle: tournamentBracketStyleEnum("bracket_style").default("single_elimination").notNull(),
+  level: tournamentLevelEnum("level").default("open"),
+  maxPods: integer("max_pods").default(9).notNull(), // For pod tournaments
+  maxTeams: integer("max_teams").default(9).notNull(), // For set team tournaments
+
+  // Scoring configuration - stores { startPoints: 0, endPoints: 21, winByTwo: true, cap?: 27, game3EndPoints?: 15 }
+  scoringRules: json("scoring_rules").$type<{
+    startPoints: number;
+    endPoints: number;
+    winByTwo: boolean;
+    cap?: number;
+    game3EndPoints?: number;
+  }>(),
+
+  // Dynamic content sections (replaces hardcoded sections)
+  poolPlayDescription: text("pool_play_description"), // Pool play format details
+  bracketPlayDescription: text("bracket_play_description"), // Bracket play format details
+  rulesDescription: text("rules_description"), // Tournament-specific rules
+  prizeInfo: text("prize_info"), // Prize information
+
   registrationDeadline: timestamp("registration_deadline"),
   registrationOpenDate: timestamp("registration_open_date"),
   isPublic: boolean("is_public").default(true).notNull(),
@@ -53,7 +93,7 @@ export const tournaments = pgTable("tournaments", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Pods table - stores the 9 pods (teams of 2 players)
+// Pods/Teams table - stores pods (2-3 players) or set teams (captain + up to 8 players)
 export const pods = pgTable(
   "pods",
   {
@@ -61,11 +101,12 @@ export const pods = pgTable(
     tournamentId: integer("tournament_id")
       .notNull()
       .references(() => tournaments.id), // Link to tournament
-    userId: text("user_id").notNull(), // Supabase auth.users.id (UUID as text)
+    userId: text("user_id").notNull(), // Supabase auth.users.id (UUID as text) - captain
     email: text("email").notNull(), // Captain's email
-    name: text("name").notNull(), // e.g., "John & Sarah"
-    player1: text("player1").notNull(),
-    player2: text("player2").notNull(),
+    name: text("name").notNull(), // e.g., "John & Sarah" or team name
+    player1: text("player1").notNull(), // Required for all tournament types
+    player2: text("player2"), // Required for 2-pod, optional for set teams (players added later)
+    player3: text("player3"), // For 3-pod tournaments
     teamName: text("team_name"), // Optional custom team name
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },

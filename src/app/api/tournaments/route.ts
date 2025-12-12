@@ -10,7 +10,28 @@ interface TournamentData {
   date: string;
   location: string;
   description: string;
+
+  // Tournament Configuration
+  tournamentType: "pod_2" | "pod_3" | "set_teams";
+  bracketStyle: "single_elimination" | "double_elimination";
+  level: "c" | "b" | "a" | "open";
   maxPods: number;
+  maxTeams: number;
+
+  // Scoring Rules
+  startPoints: number;
+  endPoints: number;
+  winByTwo: boolean;
+  cap: number | null;
+  game3EndPoints: number | null;
+
+  // Dynamic Content
+  poolPlayDescription: string;
+  bracketPlayDescription: string;
+  rulesDescription: string;
+  prizeInfo: string;
+
+  // Registration & Visibility
   registrationDeadline: string;
   registrationOpenDate: string;
   isPublic: boolean;
@@ -49,7 +70,20 @@ export async function POST(request: NextRequest) {
       date,
       location,
       description,
+      tournamentType,
+      bracketStyle,
+      level,
       maxPods,
+      maxTeams,
+      startPoints,
+      endPoints,
+      winByTwo,
+      cap,
+      game3EndPoints,
+      poolPlayDescription,
+      bracketPlayDescription,
+      rulesDescription,
+      prizeInfo,
       registrationDeadline,
       registrationOpenDate,
       isPublic,
@@ -101,7 +135,30 @@ export async function POST(request: NextRequest) {
         date: new Date(date),
         location,
         description: description || null,
+
+        // Tournament Configuration
+        tournamentType,
+        bracketStyle,
+        level,
         maxPods,
+        maxTeams,
+
+        // Scoring Rules as JSON
+        scoringRules: {
+          startPoints,
+          endPoints,
+          winByTwo,
+          ...(cap !== null && { cap }),
+          ...(game3EndPoints !== null && { game3EndPoints }),
+        },
+
+        // Dynamic Content
+        poolPlayDescription: poolPlayDescription || null,
+        bracketPlayDescription: bracketPlayDescription || null,
+        rulesDescription: rulesDescription || null,
+        prizeInfo: prizeInfo || null,
+
+        // Registration & Visibility
         registrationDeadline: registrationDeadline
           ? new Date(registrationDeadline)
           : null,

@@ -12,6 +12,7 @@ interface TournamentContextType {
   userRole: "organizer" | "participant" | null;
   isOrganizer: boolean;
   isParticipant: boolean;
+  hasRegisteredTeam: boolean;
   isLoading: boolean;
 }
 
@@ -39,12 +40,14 @@ export function TournamentProvider({
   const [userRole, setUserRole] = useState<
     "organizer" | "participant" | null
   >(null);
+  const [hasRegisteredTeam, setHasRegisteredTeam] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function fetchUserRole() {
       if (!userId) {
         setUserRole(null);
+        setHasRegisteredTeam(false);
         setIsLoading(false);
         return;
       }
@@ -56,12 +59,15 @@ export function TournamentProvider({
         if (response.ok) {
           const data = await response.json();
           setUserRole(data.role || null);
+          setHasRegisteredTeam(data.hasRegisteredTeam || false);
         } else {
           setUserRole(null);
+          setHasRegisteredTeam(false);
         }
       } catch (error) {
         console.error("Error fetching user role:", error);
         setUserRole(null);
+        setHasRegisteredTeam(false);
       } finally {
         setIsLoading(false);
       }
@@ -75,6 +81,7 @@ export function TournamentProvider({
     userRole,
     isOrganizer: userRole === "organizer",
     isParticipant: userRole === "participant",
+    hasRegisteredTeam,
     isLoading,
   };
 

@@ -1,7 +1,29 @@
 import { Card, CardContent } from "@/components/ui/card";
 import volleyballImage from "@/app/assets/images/image.jpg";
+import { getTemplateForType, type TournamentType } from "@/lib/tournament-templates";
 
-export function TournamentFormatSection() {
+interface TournamentFormatSectionProps {
+  poolPlayDescription?: string | null;
+  bracketPlayDescription?: string | null;
+  tournamentType?: "pod_2" | "pod_3" | "set_teams";
+}
+
+export function TournamentFormatSection({
+  poolPlayDescription,
+  bracketPlayDescription,
+  tournamentType = "pod_2",
+}: TournamentFormatSectionProps) {
+  // Get template for fallback content
+  const template = getTemplateForType(tournamentType as TournamentType);
+
+  // Helper to render content with line breaks preserved
+  const renderContent = (content: string) => {
+    return content.split('\n').map((line, i) => {
+      if (!line.trim()) return <br key={i} />;
+      return <p key={i} className="text-sm">{line}</p>;
+    });
+  };
+
   return (
     <section className="bg-muted/40 py-16 md:py-24">
       <div className="container mx-auto px-4">
@@ -20,23 +42,8 @@ export function TournamentFormatSection() {
             </div>
             <Card>
               <CardContent className="space-y-3 pt-6">
-                <div>
-                  <p className="font-medium">9 Pods of 2 Players</p>
-                  <p className="text-muted-foreground text-sm">
-                    18 total players divided into partnerships
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium">6v6 Matches</p>
-                  <p className="text-muted-foreground text-sm">
-                    3 pods per side, 3 pods rest each round
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium">Seeding by Point Differential</p>
-                  <p className="text-muted-foreground text-sm">
-                    Pods ranked 1-9 after pool play
-                  </p>
+                <div className="prose prose-sm max-w-none">
+                  {renderContent(poolPlayDescription || template.poolPlay)}
                 </div>
               </CardContent>
             </Card>
@@ -78,23 +85,8 @@ export function TournamentFormatSection() {
             </div>
             <Card>
               <CardContent className="space-y-3 pt-6">
-                <div>
-                  <p className="font-medium">3 Teams of 6 Players</p>
-                  <p className="text-muted-foreground text-sm">
-                    Seeds 1+5+9, 2+6+7, 3+4+8
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium">Balanced Team Formation</p>
-                  <p className="text-muted-foreground text-sm">
-                    Top, middle, and bottom seeds combined
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium">Double Elimination</p>
-                  <p className="text-muted-foreground text-sm">
-                    Everyone must lose twice to be eliminated
-                  </p>
+                <div className="prose prose-sm max-w-none">
+                  {renderContent(bracketPlayDescription || template.bracketPlay)}
                 </div>
               </CardContent>
             </Card>
