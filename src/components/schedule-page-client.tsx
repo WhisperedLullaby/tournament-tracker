@@ -72,6 +72,7 @@ export function SchedulePageClient({
       const { data: matches, error } = await supabase
         .from("pool_matches")
         .select("*")
+        .eq("tournament_id", tournamentId)
         .order("game_number", { ascending: true });
 
       if (error) throw error;
