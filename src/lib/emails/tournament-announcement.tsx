@@ -131,7 +131,7 @@ export function TournamentAnnouncementEmail({
 
           <div style={{ fontSize: "15px", lineHeight: "1.8" }}>
             <p style={{ margin: "8px 0" }}>
-              <strong>📅 Date:</strong> Saturday, November 1st, 2025
+              <strong>📅 Date:</strong> Saturday, Decemeber 13th, 2025
             </p>
             <p style={{ margin: "8px 0" }}>
               <strong>🕘 Arrival Time:</strong> 9:30 AM for check-in &amp;
