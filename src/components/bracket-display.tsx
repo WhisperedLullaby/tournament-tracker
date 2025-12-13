@@ -40,6 +40,8 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
   const game3 = getMatch(3);
   const game4 = getMatch(4);
   const game5 = getMatch(5);
+  const game6 = getMatch(6);
+  const game7 = getMatch(7);
 
   // Match card component
   const MatchCard = ({
@@ -166,39 +168,94 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
         </div>
 
         {/* Bracket Grid */}
-        <div className="grid grid-cols-4 gap-6">
-          {/* Round 1 */}
-          <div className="space-y-4">
-            <div className="text-muted-foreground mb-2 text-center text-xs font-semibold">
-              ROUND 1
+        <div className="space-y-8">
+          {/* Winner's Bracket */}
+          <div>
+            <h3 className="mb-4 text-center text-lg font-semibold text-yellow-600 dark:text-yellow-500">
+              Winner's Bracket
+            </h3>
+            <div className="grid grid-cols-3 gap-6">
+              {/* Round 1 */}
+              <div className="space-y-4">
+                <div className="text-muted-foreground mb-2 text-center text-xs font-semibold">
+                  ROUND 1
+                </div>
+                <MatchCard match={game1} label="Game 1: 1st vs 3rd" />
+                <MatchCard match={game2} label="Game 2: 2nd vs 4th" />
+              </div>
+
+              {/* Winner's Final */}
+              <div className="space-y-4">
+                <div className="text-muted-foreground mb-2 text-center text-xs font-semibold">
+                  WINNER'S FINAL
+                </div>
+                <div className="h-12" />
+                <MatchCard match={game3} label="Game 3: Winner's Bracket" />
+              </div>
+
+              {/* To Championship */}
+              <div className="space-y-4">
+                <div className="text-muted-foreground mb-2 text-center text-xs font-semibold">
+                  TO FINALS
+                </div>
+                <div className="h-12" />
+                <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-yellow-500/30 bg-yellow-500/5 p-4">
+                  <span className="text-xs text-muted-foreground">
+                    Winner → Game 6
+                  </span>
+                </div>
+              </div>
             </div>
-            <MatchCard match={game1} label="Game 1" />
           </div>
 
-          {/* Round 2 */}
-          <div className="space-y-4">
-            <div className="text-muted-foreground mb-2 text-center text-xs font-semibold">
-              ROUND 2
-            </div>
-            <MatchCard match={game2} label="Game 2" />
-            <div className="h-4" />
-            <MatchCard match={game3} label="Game 3 (Losers)" />
-          </div>
+          {/* Loser's Bracket */}
+          <div>
+            <h3 className="mb-4 text-center text-lg font-semibold text-blue-600 dark:text-blue-500">
+              Loser's Bracket
+            </h3>
+            <div className="grid grid-cols-3 gap-6">
+              {/* Loser's Round 1 */}
+              <div className="space-y-4">
+                <div className="text-muted-foreground mb-2 text-center text-xs font-semibold">
+                  ROUND 1
+                </div>
+                <div className="h-12" />
+                <MatchCard match={game4} label="Game 4: Loser's Bracket" />
+              </div>
 
-          {/* Round 3 */}
-          <div className="space-y-4">
-            <div className="text-muted-foreground mb-2 text-center text-xs font-semibold">
-              Winners Finals
+              {/* Loser's Final */}
+              <div className="space-y-4">
+                <div className="text-muted-foreground mb-2 text-center text-xs font-semibold">
+                  LOSER'S FINAL
+                </div>
+                <div className="h-12" />
+                <MatchCard match={game5} label="Game 5: Loser's Final" />
+              </div>
+
+              {/* To Championship */}
+              <div className="space-y-4">
+                <div className="text-muted-foreground mb-2 text-center text-xs font-semibold">
+                  TO FINALS
+                </div>
+                <div className="h-12" />
+                <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-blue-500/30 bg-blue-500/5 p-4">
+                  <span className="text-xs text-muted-foreground">
+                    Winner → Game 6
+                  </span>
+                </div>
+              </div>
             </div>
-            <MatchCard match={game4} label="Game 4" />
           </div>
 
           {/* Championship */}
-          <div className="space-y-4">
-            <div className="text-muted-foreground mb-2 text-center text-xs font-semibold">
-              Bracket Reset
+          <div>
+            <h3 className="mb-4 text-center text-lg font-semibold text-purple-600 dark:text-purple-500">
+              Championship
+            </h3>
+            <div className="grid grid-cols-2 gap-6 max-w-2xl mx-auto">
+              <MatchCard match={game6} label="Game 6: Grand Finals" className="h-fit" />
+              <MatchCard match={game7} label="Game 7: Finals Reset (If Needed)" className="h-fit" />
             </div>
-            <MatchCard match={game5} label="Game 5 (If Needed)" />
           </div>
         </div>
 

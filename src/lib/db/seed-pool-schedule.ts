@@ -16,6 +16,9 @@ import { poolMatches } from "./schema";
 import * as fs from "fs";
 import * as path from "path";
 
+// Configure this to match your tournament ID
+const TOURNAMENT_ID = 6;
+
 async function seedPoolSchedule() {
   console.log("🏐 Seeding pool play schedule...\n");
 
@@ -39,6 +42,7 @@ async function seedPoolSchedule() {
     // Insert each game
     for (const game of scheduleData.poolGames) {
       await db.insert(poolMatches).values({
+        tournamentId: TOURNAMENT_ID,
         gameNumber: game.gameNumber,
         roundNumber: Math.ceil(game.gameNumber / 1.5), // Approximate round number
         scheduledTime: game.scheduledTime,

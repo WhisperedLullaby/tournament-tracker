@@ -8,12 +8,14 @@ import { eq } from "drizzle-orm";
 
 /**
  * Updates pool standings for all pods involved in a completed game
+ * @param tournamentId - The tournament ID
  * @param teamAPods - Array of pod IDs on Team A
  * @param teamBPods - Array of pod IDs on Team B
  * @param teamAScore - Final score for Team A
  * @param teamBScore - Final score for Team B
  */
 export async function updatePoolStandings(
+  tournamentId: number,
   teamAPods: number[],
   teamBPods: number[],
   teamAScore: number,
@@ -27,23 +29,25 @@ export async function updatePoolStandings(
 
   // Update standings for winning pods
   for (const podId of winningPods) {
-    await updatePodStanding(podId, true, winningScore, losingScore);
+    await updatePodStanding(tournamentId, podId, true, winningScore, losingScore);
   }
 
   // Update standings for losing pods
   for (const podId of losingPods) {
-    await updatePodStanding(podId, false, losingScore, winningScore);
+    await updatePodStanding(tournamentId, podId, false, losingScore, winningScore);
   }
 }
 
 /**
  * Updates or creates a standing record for a single pod
+ * @param tournamentId - The tournament ID
  * @param podId - The pod ID to update
  * @param won - Whether the pod won this game
  * @param pointsFor - Points scored by this pod's team
  * @param pointsAgainst - Points scored by the opposing team
  */
 async function updatePodStanding(
+  tournamentId: number,
   podId: number,
   won: boolean,
   pointsFor: number,
@@ -72,6 +76,7 @@ async function updatePodStanding(
     } else {
       // Create new standing
       await db.insert(poolStandings).values({
+        tournamentId,
         podId,
         wins: won ? 1 : 0,
         losses: won ? 0 : 1,

@@ -8,49 +8,185 @@
     {
       "gameNumber": 1,
       "scheduledTime": "10:00 AM",
-      "teamAPods": [4, 5, 6],
-      "teamBPods": [7, 8, 9],
-      "sittingPods": [1, 2, 3],
+      "teamAPods": [
+        4,
+        5,
+        6
+      ],
+      "teamBPods": [
+        7,
+        8,
+        9
+      ],
+      "sittingPods": [
+        1,
+        2,
+        3,
+        12,
+        10,
+        11
+      ],
       "courtNumber": 1
     },
     {
       "gameNumber": 2,
       "scheduledTime": "10:20 AM",
-      "teamAPods": [1, 2, 3],
-      "teamBPods": [4, 7, 9],
-      "sittingPods": [5, 6, 8],
+      "teamAPods": [
+        1,
+        2,
+        3
+      ],
+      "teamBPods": [
+        10,
+        11,
+        12
+      ],
+      "sittingPods": [
+        4,
+        6,
+        7,
+        8,
+        5,
+        9
+      ],
       "courtNumber": 1
     },
     {
       "gameNumber": 3,
       "scheduledTime": "10:40 AM",
-      "teamAPods": [3, 6, 8],
-      "teamBPods": [1, 2, 5],
-      "sittingPods": [4, 7, 9],
+      "teamAPods": [
+        4,
+        7,
+        10
+      ],
+      "teamBPods": [
+        1,
+        6,
+        9
+      ],
+      "sittingPods": [
+        2,
+        3,
+        5,
+        8,
+        12,
+        11
+      ],
       "courtNumber": 1
     },
     {
       "gameNumber": 4,
       "scheduledTime": "11:00 AM",
-      "teamAPods": [3, 4, 9],
-      "teamBPods": [1, 6, 7],
-      "sittingPods": [2, 5, 8],
+      "teamAPods": [
+        2,
+        4,
+        9
+      ],
+      "teamBPods": [
+        3,
+        5,
+        7
+      ],
+      "sittingPods": [
+        1,
+        6,
+        10,
+        12,
+        11,
+        8
+      ],
       "courtNumber": 1
     },
     {
       "gameNumber": 5,
       "scheduledTime": "11:20 AM",
-      "teamAPods": [2, 4, 8],
-      "teamBPods": [3, 5, 9],
-      "sittingPods": [1, 6, 7],
+      "teamAPods": [
+        1,
+        8,
+        12
+      ],
+      "teamBPods": [
+        6,
+        10,
+        11
+      ],
+      "sittingPods": [
+        2,
+        5,
+        7,
+        9,
+        4,
+        3
+      ],
       "courtNumber": 1
     },
     {
       "gameNumber": 6,
       "scheduledTime": "11:40 AM",
-      "teamAPods": [1, 5, 8],
-      "teamBPods": [2, 6, 7],
-      "sittingPods": [3, 4, 9],
+      "teamAPods": [
+        2,
+        5,
+        7
+      ],
+      "teamBPods": [
+        3,
+        9,
+        12
+      ],
+      "sittingPods": [
+        4,
+        6,
+        8,
+        10,
+        1,
+        11
+      ],
+      "courtNumber": 1
+    },
+    {
+      "gameNumber": 7,
+      "scheduledTime": "12:00 PM",
+      "teamAPods": [
+        1,
+        4,
+        11
+      ],
+      "teamBPods": [
+        6,
+        8,
+        10
+      ],
+      "sittingPods": [
+        3,
+        5,
+        9,
+        12,
+        7,
+        2
+      ],
+      "courtNumber": 1
+    },
+    {
+      "gameNumber": 8,
+      "scheduledTime": "12:20 PM",
+      "teamAPods": [
+        2,
+        5,
+        12
+      ],
+      "teamBPods": [
+        3,
+        8,
+        11
+      ],
+      "sittingPods": [
+        1,
+        4,
+        7,
+        10,
+        6,
+        9
+      ],
       "courtNumber": 1
     }
   ]

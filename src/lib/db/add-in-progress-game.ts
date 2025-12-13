@@ -14,6 +14,9 @@ config({ path: ".env.local" });
 import { db } from "./index";
 import { poolMatches } from "./schema";
 
+// Configure this to match your tournament ID
+const TOURNAMENT_ID = 1;
+
 async function addInProgressGame() {
   console.log("🏐 Adding in-progress test game...\n");
 
@@ -23,6 +26,7 @@ async function addInProgressGame() {
     const match = await db
       .insert(poolMatches)
       .values({
+        tournamentId: TOURNAMENT_ID,
         gameNumber: 1,
         roundNumber: 1,
         scheduledTime: "10:00 AM",

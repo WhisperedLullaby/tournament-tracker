@@ -1,10 +1,6 @@
-import { TeamsPageClient } from "@/components/teams-page-client";
-import { getAllPods } from "@/lib/db/queries";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default async function TeamsPage() {
-  const podData = await getAllPods();
-
-  return <TeamsPageClient podData={podData} />;
+export default function TeamsPage() {
+  // Redirect to tournaments - user needs to select a specific tournament
+  redirect("/tournaments");
 }

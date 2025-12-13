@@ -1,5 +1,6 @@
-import { HomePageClient } from "@/components/home-page-client";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return <HomePageClient />;
+  // Redirect to tournaments list
+  redirect("/tournaments");
 }

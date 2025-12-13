@@ -15,6 +15,9 @@ import { db } from "./index";
 import { poolMatches, poolStandings } from "./schema";
 import { eq } from "drizzle-orm";
 
+// Configure this to match your tournament ID
+const TOURNAMENT_ID = 1;
+
 async function addMatch2() {
   console.log("🏐 Adding second test match...\n");
 
@@ -23,6 +26,7 @@ async function addMatch2() {
     const match = await db
       .insert(poolMatches)
       .values({
+        tournamentId: TOURNAMENT_ID,
         gameNumber: 2,
         roundNumber: 2,
         scheduledTime: "10:20 AM",
@@ -61,6 +65,7 @@ async function addMatch2() {
           .where(eq(poolStandings.podId, podId));
       } else {
         await db.insert(poolStandings).values({
+          tournamentId: TOURNAMENT_ID,
           podId,
           wins: 1,
           losses: 0,
@@ -90,6 +95,7 @@ async function addMatch2() {
           .where(eq(poolStandings.podId, podId));
       } else {
         await db.insert(poolStandings).values({
+          tournamentId: TOURNAMENT_ID,
           podId,
           wins: 0,
           losses: 1,

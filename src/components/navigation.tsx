@@ -1,19 +1,84 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { Menu, X, User, LogOut } from "lucide-react";
+import { createClient } from "@/lib/auth/client";
+import { Button } from "@/components/ui/button";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 export function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [userRole, setUserRole] = useState<"organizer" | "participant" | null>(null);
+  const pathname = usePathname();
+  const supabase = createClient();
 
-  const navItems = [
+  // Extract tournament slug from pathname if on a tournament page
+  const tournamentSlug = pathname?.match(/^\/tournaments\/([^/]+)/)?.[1];
+  const isOnTournamentPage = !!tournamentSlug && tournamentSlug !== "create";
+
+  useEffect(() => {
+    // Check current auth state
+    const checkAuth = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+
+      // Fetch user role for the current tournament if on tournament page
+      if (session?.user && tournamentSlug && tournamentSlug !== "create") {
+        try {
+          const response = await fetch(`/api/tournaments/${tournamentSlug}/role`);
+          if (response.ok) {
+            const data = await response.json();
+            setUserRole(data.role);
+          }
+        } catch (error) {
+          console.error("Error fetching user role:", error);
+        }
+      }
+    };
+
+    checkAuth();
+
+    // Listen for auth state changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase.auth, tournamentSlug]);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setIsMenuOpen(false);
+  };
+
+  // Base navigation items
+  const baseNavItems = [
     { label: "Home", href: "/" },
-    { label: "Standings", href: "/standings" },
-    { label: "Schedule", href: "/schedule" },
-    { label: "Scorekeeper", href: "/scorekeeper" },
-    { label: "Teams", href: "/teams" },
+    { label: "Tournaments", href: "/tournaments" },
+    { label: "Dashboard", href: "/dashboard" },
   ];
+
+  // Tournament-specific navigation items
+  const tournamentNavItems = isOnTournamentPage
+    ? [
+        { label: "Overview", href: `/tournaments/${tournamentSlug}` },
+        { label: "Standings", href: `/tournaments/${tournamentSlug}/standings` },
+        { label: "Schedule", href: `/tournaments/${tournamentSlug}/schedule` },
+        { label: "Teams", href: `/tournaments/${tournamentSlug}/standings` }, // Teams shows standings
+        ...(userRole === "organizer"
+          ? [{ label: "Scorekeeper", href: `/tournaments/${tournamentSlug}/scorekeeper` }]
+          : []),
+      ]
+    : [];
+
+  const navItems = isOnTournamentPage ? tournamentNavItems : baseNavItems;
 
   return (
     <nav className="bg-card supports-backdrop-filter:bg-card/90 sticky top-0 z-50 w-full border-b backdrop-blur">
@@ -21,7 +86,7 @@ export function Navigation() {
         {/* Logo/Brand */}
         <Link href="/" className="text-primary text-xl font-bold">
           Hewwo Pwincess
-        </Link>{" "}
+        </Link>
         {/* Desktop Navigation */}
         <div className="hidden items-center gap-6 md:flex">
           {navItems.map((item) => (
@@ -33,6 +98,24 @@ export function Navigation() {
               {item.label}
             </Link>
           ))}
+          {user && (
+            <div className="flex items-center gap-3 border-l pl-6">
+              <div className="flex items-center gap-2 text-sm">
+                <User className="h-4 w-4" />
+                <span className="text-muted-foreground max-w-[150px] truncate">
+                  {user.email}
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSignOut}
+                className="h-8"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
         {/* Mobile Menu Button */}
         <button
@@ -62,6 +145,27 @@ export function Navigation() {
                 {item.label}
               </Link>
             ))}
+            {user && (
+              <>
+                <div className="border-t pt-4">
+                  <div className="flex items-center gap-2 text-sm">
+                    <User className="h-4 w-4" />
+                    <span className="text-muted-foreground truncate">
+                      {user.email}
+                    </span>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSignOut}
+                  className="w-full justify-start"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </Button>
+              </>
+            )}
           </div>
         </div>
       )}
