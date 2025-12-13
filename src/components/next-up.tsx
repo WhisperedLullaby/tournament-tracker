@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock } from "lucide-react";
@@ -12,18 +12,8 @@ interface NextUpProps {
 }
 
 export function NextUp({ nextGamePods, nextGameTime, podNames }: NextUpProps) {
-  // Randomize the pod order so players can't guess matchups
-  const randomizedPods = useMemo(() => {
-    if (!nextGamePods) return [];
-
-    // Create a copy and shuffle using Fisher-Yates algorithm
-    const shuffled = [...nextGamePods];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  }, [nextGamePods]);
+  // Display pods in their original order
+  const displayPods = nextGamePods || [];
 
   // Generate random color classes for badges
   const getColorClass = (index: number) => {
@@ -76,7 +66,7 @@ export function NextUp({ nextGamePods, nextGameTime, podNames }: NextUpProps) {
               Court 1 - Next Players:
             </p>
             <div className="flex flex-wrap gap-2">
-              {randomizedPods.map((podId, index) => (
+              {displayPods.map((podId, index) => (
                 <Badge
                   key={`${podId}-${index}`}
                   variant="outline"
@@ -86,12 +76,6 @@ export function NextUp({ nextGamePods, nextGameTime, podNames }: NextUpProps) {
                 </Badge>
               ))}
             </div>
-          </div>
-
-          <div className="pt-2 border-t">
-            <p className="text-xs text-muted-foreground italic">
-              Teams are randomized • Check the schedule to see your full team
-            </p>
           </div>
         </div>
       </CardContent>

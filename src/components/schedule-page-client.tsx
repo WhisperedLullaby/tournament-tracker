@@ -226,19 +226,23 @@ export function SchedulePageClient({
         console.log('[Schedule] Subscription status:', status);
       });
 
-    // Fallback: Poll every 3 seconds as backup
-    const pollInterval = setInterval(() => {
-      console.log('[Schedule] Polling for updates (fallback)');
-      refreshMatches();
-    }, 3000);
+    // Fallback: Poll every 3 seconds as backup - ONLY during bracket phase
+    // Pool play real-time subscriptions work reliably, bracket needs polling fallback
+    let pollInterval: NodeJS.Timeout | undefined;
+    if (isPoolPlayComplete) {
+      pollInterval = setInterval(() => {
+        console.log('[Schedule] Polling for updates (bracket phase fallback)');
+        refreshMatches();
+      }, 3000);
+    }
 
     // Cleanup subscription on unmount
     return () => {
       console.log('[Schedule] Cleaning up subscriptions');
-      clearInterval(pollInterval);
+      if (pollInterval) clearInterval(pollInterval);
       supabase.removeChannel(channel);
     };
-  }, [refreshMatches, tournamentId]);
+  }, [refreshMatches, tournamentId, isPoolPlayComplete]);
 
   // Combine next game pods for the NextUp component
   const nextGamePods =

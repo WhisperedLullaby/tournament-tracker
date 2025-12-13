@@ -1,0 +1,167 @@
+[Vercel Web Analytics] Debug mode is enabled by default in development. No requests will be sent to the server. script.debug.js:1:462
+[Vercel Web Analytics] Running queued event pageview 
+Object { route: "/tournaments", path: "/tournaments" }
+script.debug.js:1:462
+[Vercel Web Analytics] [pageview] http://localhost:3000/tournaments 
+Object { o: "http://localhost:3000/tournaments", sv: "0.1.3", sdkn: "@vercel/analytics/next", sdkv: "1.5.0", ts: 1765617832910, dp: "/tournaments", r: "", f: undefined }
+script.debug.js:1:462
+[Fast Refresh] rebuilding hot-reloader-client.tsx:306:17
+[Fast Refresh] done in 1941ms report-hmr-latency.ts:26:11
+Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. <anonymous code>:1:147461
+Encountered two children with the same key, `/tournaments/two-peas-pod-december-2025/standings`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. Stack: 
+    children webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    Navigation webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    TournamentPage webpack-internal:///(app-pages-browser)/./src/app/tournaments/[slug]/page.tsx:92
+    ClientPageRoot webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/client-page.js:20
+<anonymous code>:1:147461
+Skipping auto-scroll behavior due to `position: sticky` or `position: fixed` on element: 
+<nav class="bg-card supports-backdro… border-b backdrop-blur">
+ Stack: 
+    shouldSkipElement webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:97
+    handlePotentialScroll webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:166
+    componentDidMount webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:128
+    ScrollAndFocusHandler webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:234
+    OuterLayoutRouter webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:445
+<anonymous code>:1:147461
+Encountered two children with the same key, `/tournaments/two-peas-pod-december-2025/standings`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. Stack: 
+    children webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    Navigation webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    TournamentPage webpack-internal:///(app-pages-browser)/./src/app/tournaments/[slug]/page.tsx:123
+    ClientPageRoot webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/client-page.js:20
+<anonymous code>:1:147461
+[Vercel Web Analytics] [pageview] http://localhost:3000/tournaments/two-peas-pod-december-2025 
+Object { o: "http://localhost:3000/tournaments/two-peas-pod-december-2025", sv: "0.1.3", sdkn: "@vercel/analytics/next", sdkv: "1.5.0", ts: 1765617839656, dp: "/tournaments/[slug]", f: undefined }
+script.debug.js:1:462
+Feature Policy: Skipping unsupported feature name “cross-origin-isolated”. api.js:1:32878
+Feature Policy: Skipping unsupported feature name “autoplay”. api.js:1:32878
+Feature Policy: Skipping unsupported feature name “cross-origin-isolated”. api.js:1:32916
+Feature Policy: Skipping unsupported feature name “autoplay”. api.js:1:32916
+Feature Policy: Skipping unsupported feature name “cross-origin-isolated”. api.js:1:33721
+Feature Policy: Skipping unsupported feature name “autoplay”. api.js:1:33721
+[Fast Refresh] rebuilding hot-reloader-client.tsx:306:17
+[Fast Refresh] done in 464ms report-hmr-latency.ts:26:11
+Encountered two children with the same key, `/tournaments/two-peas-pod-december-2025/standings`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. Stack: 
+    children webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    Navigation webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    TournamentPage webpack-internal:///(app-pages-browser)/./src/app/tournaments/[slug]/page.tsx:123
+    ClientPageRoot webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/client-page.js:20
+<anonymous code>:1:147461
+Encountered two children with the same key, `/tournaments/two-peas-pod-december-2025/standings`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. Stack: 
+    children webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    Navigation webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    TournamentPage webpack-internal:///(app-pages-browser)/./src/app/tournaments/[slug]/page.tsx:123
+    ClientPageRoot webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/client-page.js:20
+<anonymous code>:1:147461
+[Fast Refresh] rebuilding hot-reloader-client.tsx:306:17
+[Fast Refresh] done in 745ms report-hmr-latency.ts:26:11
+Encountered two children with the same key, `/tournaments/two-peas-pod-december-2025/standings`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. Stack: 
+    children webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    Navigation webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    SchedulePageClient webpack-internal:///(app-pages-browser)/./src/components/schedule-page-client.tsx:218
+    TournamentSchedulePage rsc://react/Server/webpack-internal:///(rsc)/./src/app/tournaments/[slug]/schedule/page.tsx?118:50
+<anonymous code>:1:147461
+Skipping auto-scroll behavior due to `position: sticky` or `position: fixed` on element: 
+<nav class="bg-card supports-backdro… border-b backdrop-blur">
+ Stack: 
+    shouldSkipElement webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:97
+    handlePotentialScroll webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:166
+    componentDidMount webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:128
+    ScrollAndFocusHandler webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:234
+    OuterLayoutRouter webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:445
+<anonymous code>:1:147461
+[Schedule] Setting up realtime subscriptions for tournament: 6 schedule-page-client.tsx:179:13
+[Schedule] Cleaning up subscriptions <anonymous code>:1:150327
+[Schedule] Subscription status: CLOSED <anonymous code>:1:150327
+[Schedule] Setting up realtime subscriptions for tournament: 6 <anonymous code>:1:150327
+[Vercel Web Analytics] [pageview] http://localhost:3000/tournaments/two-peas-pod-december-2025/schedule 
+Object { o: "http://localhost:3000/tournaments/two-peas-pod-december-2025/schedule", sv: "0.1.3", sdkn: "@vercel/analytics/next", sdkv: "1.5.0", ts: 1765617849966, dp: "/tournaments/[slug]/schedule", f: undefined }
+script.debug.js:1:462
+Cookie “__cf_bm” has been rejected for invalid domain. websocket
+[Schedule] Subscription status: SUBSCRIBED schedule-page-client.tsx:226:17
+[Schedule] Polling for updates (fallback) schedule-page-client.tsx:231:15
+Encountered two children with the same key, `/tournaments/two-peas-pod-december-2025/standings`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. Stack: 
+    children webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    Navigation webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    SchedulePageClient webpack-internal:///(app-pages-browser)/./src/components/schedule-page-client.tsx:218
+    TournamentSchedulePage rsc://react/Server/webpack-internal:///(rsc)/./src/app/tournaments/[slug]/schedule/page.tsx?118:50
+<anonymous code>:1:147461
+Encountered two children with the same key, `/tournaments/two-peas-pod-december-2025/standings`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. Stack: 
+    children webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    Navigation webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    SchedulePageClient webpack-internal:///(app-pages-browser)/./src/components/schedule-page-client.tsx:218
+    TournamentSchedulePage rsc://react/Server/webpack-internal:///(rsc)/./src/app/tournaments/[slug]/schedule/page.tsx?118:50
+<anonymous code>:1:147461
+Encountered two children with the same key, `/tournaments/two-peas-pod-december-2025/standings`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. Stack: 
+    children webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    Navigation webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    SchedulePageClient webpack-internal:///(app-pages-browser)/./src/components/schedule-page-client.tsx:218
+    TournamentSchedulePage rsc://react/Server/webpack-internal:///(rsc)/./src/app/tournaments/[slug]/schedule/page.tsx?118:50
+<anonymous code>:1:147461
+[Schedule] Polling for updates (fallback) schedule-page-client.tsx:231:15
+Encountered two children with the same key, `/tournaments/two-peas-pod-december-2025/standings`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. Stack: 
+    children webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    Navigation webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    SchedulePageClient webpack-internal:///(app-pages-browser)/./src/components/schedule-page-client.tsx:218
+    TournamentSchedulePage rsc://react/Server/webpack-internal:///(rsc)/./src/app/tournaments/[slug]/schedule/page.tsx?118:50
+<anonymous code>:1:147461
+Encountered two children with the same key, `/tournaments/two-peas-pod-december-2025/standings`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. Stack: 
+    children webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    Navigation webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    SchedulePageClient webpack-internal:///(app-pages-browser)/./src/components/schedule-page-client.tsx:218
+    TournamentSchedulePage rsc://react/Server/webpack-internal:///(rsc)/./src/app/tournaments/[slug]/schedule/page.tsx?118:50
+<anonymous code>:1:147461
+Encountered two children with the same key, `/tournaments/two-peas-pod-december-2025/standings`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. Stack: 
+    children webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    Navigation webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    SchedulePageClient webpack-internal:///(app-pages-browser)/./src/components/schedule-page-client.tsx:218
+    TournamentSchedulePage rsc://react/Server/webpack-internal:///(rsc)/./src/app/tournaments/[slug]/schedule/page.tsx?118:50
+<anonymous code>:1:147461
+[Schedule] Polling for updates (fallback) schedule-page-client.tsx:231:15
+Encountered two children with the same key, `/tournaments/two-peas-pod-december-2025/standings`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. Stack: 
+    children webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    Navigation webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    SchedulePageClient webpack-internal:///(app-pages-browser)/./src/components/schedule-page-client.tsx:218
+    TournamentSchedulePage rsc://react/Server/webpack-internal:///(rsc)/./src/app/tournaments/[slug]/schedule/page.tsx?118:50
+<anonymous code>:1:147461
+Encountered two children with the same key, `/tournaments/two-peas-pod-december-2025/standings`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. Stack: 
+    children webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    Navigation webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    SchedulePageClient webpack-internal:///(app-pages-browser)/./src/components/schedule-page-client.tsx:218
+    TournamentSchedulePage rsc://react/Server/webpack-internal:///(rsc)/./src/app/tournaments/[slug]/schedule/page.tsx?118:50
+<anonymous code>:1:147461
+Encountered two children with the same key, `/tournaments/two-peas-pod-december-2025/standings`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. Stack: 
+    children webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    Navigation webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    SchedulePageClient webpack-internal:///(app-pages-browser)/./src/components/schedule-page-client.tsx:218
+    TournamentSchedulePage rsc://react/Server/webpack-internal:///(rsc)/./src/app/tournaments/[slug]/schedule/page.tsx?118:50
+<anonymous code>:1:147461
+[Fast Refresh] rebuilding hot-reloader-client.tsx:306:17
+[Fast Refresh] done in 363ms report-hmr-latency.ts:26:11
+[Schedule] Cleaning up subscriptions schedule-page-client.tsx:237:15
+[Schedule] Subscription status: CLOSED schedule-page-client.tsx:226:17
+[Vercel Web Analytics] [pageview] http://localhost:3000/ 
+Object { o: "http://localhost:3000/", sv: "0.1.3", sdkn: "@vercel/analytics/next", sdkv: "1.5.0", ts: 1765617861271, dp: "/", f: undefined }
+script.debug.js:1:462
+[Vercel Web Analytics] [pageview] http://localhost:3000/tournaments 
+Object { o: "http://localhost:3000/tournaments", sv: "0.1.3", sdkn: "@vercel/analytics/next", sdkv: "1.5.0", ts: 1765617861809, dp: "/tournaments", f: undefined }
+script.debug.js:1:462
+Encountered two children with the same key, `/tournaments/two-peas-pod-december-2025/standings`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. Stack: 
+    children webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    Navigation webpack-internal:///(app-pages-browser)/./src/components/navigation.tsx:137
+    SchedulePageClient webpack-internal:///(app-pages-browser)/./src/components/schedule-page-client.tsx:218
+    TournamentSchedulePage rsc://react/Server/webpack-internal:///(rsc)/./src/app/tournaments/[slug]/schedule/page.tsx?118:50
+<anonymous code>:1:147461
+[Schedule] Setting up realtime subscriptions for tournament: 6 schedule-page-client.tsx:179:13
+[Schedule] Cleaning up subscriptions <anonymous code>:1:150327
+[Schedule] Subscription status: CLOSED <anonymous code>:1:150327
+[Schedule] Setting up realtime subscriptions for tournament: 6 <anonymous code>:1:150327
+[Vercel Web Analytics] [pageview] http://localhost:3000/tournaments/two-peas-pod-december-2025/schedule 
+Object { o: "http://localhost:3000/tournaments/two-peas-pod-december-2025/schedule", sv: "0.1.3", sdkn: "@vercel/analytics/next", sdkv: "1.5.0", ts: 1765617871960, dp: "/tournaments/[slug]/schedule", f: undefined }
+script.debug.js:1:462
+Cookie “__cf_bm” has been rejected for invalid domain. websocket
+[Schedule] Subscription status: SUBSCRIBED schedule-page-client.tsx:226:17
+[Schedule] Cleaning up subscriptions schedule-page-client.tsx:237:15
+[Schedule] Subscription status: CLOSED schedule-page-client.tsx:226:17
+[Vercel Web Analytics] [pageview] http://localhost:3000/tournaments 
+Object { o: "http://localhost:3000/tournaments", sv: "0.1.3", sdkn: "@vercel/analytics/next", sdkv: "1.5.0", ts: 1765617874951, dp: "/tournaments", f: undefined }
+script.debug.js:1:462
