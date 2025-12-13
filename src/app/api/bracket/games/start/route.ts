@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { bracketMatches } from "@/lib/db/schema";
+import { bracketMatches, tournaments } from "@/lib/db/schema";
 import { eq, asc, and } from "drizzle-orm";
 
 /**
@@ -19,6 +19,24 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Fetch tournament to get scoring rules
+    const tournament = await db.query.tournaments.findFirst({
+      where: eq(tournaments.id, tournamentId),
+    });
+
+    if (!tournament) {
+      return NextResponse.json(
+        { error: "Tournament not found" },
+        { status: 404 }
+      );
+    }
+
+    // Get start points from scoring rules
+    const scoringRules = typeof tournament.scoringRules === 'string'
+      ? JSON.parse(tournament.scoringRules)
+      : tournament.scoringRules;
+    const startPoints = scoringRules?.startPoints || 0;
 
     // Find the next pending game for this tournament
     const pendingGames = await db
@@ -50,11 +68,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update game status to in_progress
+    // Update game status to in_progress and set scores to start points
     const updated = await db
       .update(bracketMatches)
       .set({
         status: "in_progress",
+        teamAScore: startPoints,
+        teamBScore: startPoints,
         updatedAt: new Date(),
       })
       .where(eq(bracketMatches.id, game.id))

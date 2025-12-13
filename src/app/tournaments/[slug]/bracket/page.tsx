@@ -1,5 +1,10 @@
-import { TeamsPageClient } from "@/components/teams-page-client";
-import { getAllPods, getTournamentBySlug } from "@/lib/db/queries";
+import { BracketPageClient } from "@/components/bracket-page-client";
+import {
+  getAllPods,
+  getTournamentBySlug,
+  getBracketMatches,
+  getBracketTeams,
+} from "@/lib/db/queries";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +36,22 @@ export default async function TournamentBracketPage({
   }
 
   const podData = await getAllPods(tournament.id);
+  const pods = new Map(
+    podData.map((pod) => [
+      pod.podId,
+      pod.teamName || pod.playerNames,
+    ])
+  );
 
-  return <TeamsPageClient podData={podData} />;
+  const matches = await getBracketMatches(tournament.id);
+  const teams = await getBracketTeams(tournament.id);
+
+  return (
+    <BracketPageClient
+      tournamentId={tournament.id}
+      initialMatches={matches}
+      initialTeams={teams}
+      pods={pods}
+    />
+  );
 }

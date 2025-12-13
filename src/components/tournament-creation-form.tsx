@@ -53,6 +53,7 @@ type FormData = {
   registrationDeadline: string;
   registrationOpenDate: string;
   isPublic: boolean;
+  requireAuth: boolean;
   status: "upcoming" | "active" | "completed";
 };
 
@@ -90,6 +91,7 @@ export function TournamentCreationForm() {
     registrationDeadline: "",
     registrationOpenDate: "",
     isPublic: true,
+    requireAuth: true,
     status: "upcoming",
   });
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>(
@@ -604,6 +606,24 @@ export function TournamentCreationForm() {
               <Label htmlFor="isPublic" className="font-normal">
                 Make tournament publicly visible
               </Label>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="requireAuth"
+                  checked={formData.requireAuth}
+                  onChange={(e) => updateField("requireAuth", e.target.checked)}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="requireAuth" className="font-normal">
+                  Require user accounts for registration
+                </Label>
+              </div>
+              <p className="text-muted-foreground text-xs ml-6">
+                Uncheck this if you need to manually enter registrations from external forms. Most tournaments should require authentication.
+              </p>
             </div>
           </div>
 

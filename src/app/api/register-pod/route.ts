@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { pods, tournamentRoles } from "@/lib/db/schema";
+import { pods, tournamentRoles, tournaments } from "@/lib/db/schema";
 import { isRegistrationOpen } from "@/lib/db/queries";
 import { Resend } from "resend";
 import { eq, and } from "drizzle-orm";
@@ -39,20 +39,7 @@ async function verifyTurnstileToken(token: string): Promise<boolean> {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required. Please sign in with Google." },
-        { status: 401 }
-      );
-    }
-
-    // Parse request body
+    // Parse request body first to get tournamentId
     const body: RegistrationData = await request.json();
     const { tournamentId, email, player1, player2, teamName, captchaToken } =
       body;
@@ -65,8 +52,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Ensure email matches authenticated user
-    if (email !== user.email) {
+    // Fetch tournament to check if auth is required
+    const tournament = await db.query.tournaments.findFirst({
+      where: eq(tournaments.id, tournamentId),
+    });
+
+    if (!tournament) {
+      return NextResponse.json(
+        { error: "Tournament not found" },
+        { status: 404 }
+      );
+    }
+
+    // Check authentication - only required if tournament.requireAuth is true
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (tournament.requireAuth && !user) {
+      return NextResponse.json(
+        { error: "Authentication required. Please sign in with Google." },
+        { status: 401 }
+      );
+    }
+
+    // Ensure email matches authenticated user (only for auth-required tournaments)
+    if (tournament.requireAuth && user && email !== user.email) {
       return NextResponse.json(
         { error: "Email must match your authenticated account" },
         { status: 400 }
@@ -86,27 +98,47 @@ export async function POST(request: NextRequest) {
     const registrationOpen = await isRegistrationOpen(tournamentId);
     if (!registrationOpen) {
       return NextResponse.json(
-        // TODO: Make this dynamic when multi-tournament support is added. should be all "X" spots have been filled. Different tournamanets have different number of teams.
-        { error: "Registration is closed. All 9 spots have been filled." },
+        { error: `Registration is closed. All ${tournament.maxPods} spots have been filled.` },
         { status: 400 }
       );
     }
 
     // Check if user already registered for this tournament
-    const existingPod = await db
-      .select()
-      .from(pods)
-      .where(and(eq(pods.userId, user.id), eq(pods.tournamentId, tournamentId)))
-      .limit(1);
+    // For auth-required tournaments: check by userId
+    // For non-auth tournaments: check by email
+    if (tournament.requireAuth && user) {
+      const existingPod = await db
+        .select()
+        .from(pods)
+        .where(and(eq(pods.userId, user.id), eq(pods.tournamentId, tournamentId)))
+        .limit(1);
 
-    if (existingPod.length > 0) {
-      return NextResponse.json(
-        {
-          error:
-            "You have already registered for this tournament. Each user can only register one pod per tournament.",
-        },
-        { status: 400 }
-      );
+      if (existingPod.length > 0) {
+        return NextResponse.json(
+          {
+            error:
+              "You have already registered for this tournament. Each user can only register one pod per tournament.",
+          },
+          { status: 400 }
+        );
+      }
+    } else if (!tournament.requireAuth) {
+      // For non-auth tournaments, check by email
+      const existingPod = await db
+        .select()
+        .from(pods)
+        .where(and(eq(pods.email, email), eq(pods.tournamentId, tournamentId)))
+        .limit(1);
+
+      if (existingPod.length > 0) {
+        return NextResponse.json(
+          {
+            error:
+              "This email has already been registered for this tournament.",
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // Create pod name (defaults to "Player1 & Player2")
@@ -118,7 +150,7 @@ export async function POST(request: NextRequest) {
       .insert(pods)
       .values({
         tournamentId,
-        userId: user.id,
+        userId: user?.id || null, // Only set if user is authenticated
         email,
         name: podName,
         player1,
@@ -127,18 +159,29 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
-    // Create participant role for user in this tournament
-    await db.insert(tournamentRoles).values({
-      userId: user.id,
-      tournamentId,
-      role: "participant",
-    });
+    // Create participant role for user in this tournament (only for authenticated users)
+    if (user) {
+      await db.insert(tournamentRoles).values({
+        userId: user.id,
+        tournamentId,
+        role: "participant",
+      });
+    }
 
     // Send confirmation email
     let emailSent = false;
     let emailError = null;
 
     try {
+      // Format tournament date
+      const tournamentDate = new Date(tournament.date);
+      const formattedDate = tournamentDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
       const emailHtml = `
         <!DOCTYPE html>
         <html>
@@ -150,8 +193,8 @@ export async function POST(request: NextRequest) {
             <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
               <!-- Header -->
               <div style="background-color: #727D73; color: #fff; padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0;">
-                <h1 style="margin: 0; font-size: 28px;">You're now Two Peas in a Pod!</h1>
-                <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Registration Confirmed</p>
+                <h1 style="margin: 0; font-size: 28px;">Registration Confirmed!</h1>
+                <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">${tournament.name}</p>
               </div>
 
               <!-- Content -->
@@ -161,7 +204,7 @@ export async function POST(request: NextRequest) {
                 </p>
 
                 <p style="font-size: 16px; line-height: 1.6;">
-                  You're all set! Your pod has been successfully registered for the Two Peas Pod tournament.
+                  You're all set! Your team has been successfully registered for ${tournament.name}.
                 </p>
 
                 <!-- Team Info Box -->
@@ -176,23 +219,21 @@ export async function POST(request: NextRequest) {
                 <!-- Tournament Details -->
                 <h2 style="font-size: 20px; color: #727D73; margin-top: 30px; margin-bottom: 15px;">Tournament Details</h2>
                 <div style="font-size: 15px; line-height: 1.8;">
-                  <p style="margin: 8px 0;"><strong>📅 Date:</strong> Saturday, December 13th, 2025</p>
-                  <p style="margin: 8px 0;"><strong>🕐 Time:</strong> 10:00 AM - 2:00 PM</p>
+                  <p style="margin: 8px 0;"><strong>📅 Date:</strong> ${formattedDate}</p>
                   <p style="margin: 8px 0;">
-                    <strong>📍 Location:</strong> All American FieldHouse<br>
-                    <span style="padding-left: 24px; display: block;">1 Racquet Ln, Monroeville, PA 15146</span>
+                    <strong>📍 Location:</strong> ${tournament.location || 'TBD'}
                   </p>
-                  <p style="margin: 8px 0;"><strong>🏆 Prize:</strong> Winners get their registration fee back!</p>
+                  ${tournament.prizeInfo ? `<p style="margin: 8px 0;"><strong>🏆 Prize:</strong> ${tournament.prizeInfo.split('\n')[0]}</p>` : ''}
                 </div>
 
-                <!-- What to Expect -->
-                <h2 style="font-size: 20px; color: #727D73; margin-top: 30px; margin-bottom: 15px;">What to Expect</h2>
-                <ul style="font-size: 15px; line-height: 1.8; padding-left: 20px;">
-                  <li><strong>Pool Play:</strong> 4 rounds of 6v6 matches to determine seeding</li>
-                  <li><strong>Bracket Play:</strong> Double elimination tournament with balanced teams</li>
-                  <li><strong>Reverse Coed Rules:</strong> Women's net height, special restrictions for male players</li>
-                  <li><strong>Rally Scoring:</strong> Games to 25 points, every serve scores</li>
-                </ul>
+                ${tournament.poolPlayDescription || tournament.bracketPlayDescription ? `
+                <!-- Tournament Format -->
+                <h2 style="font-size: 20px; color: #727D73; margin-top: 30px; margin-bottom: 15px;">Tournament Format</h2>
+                <div style="font-size: 15px; line-height: 1.8;">
+                  ${tournament.poolPlayDescription ? `<p style="margin: 8px 0; white-space: pre-line;">${tournament.poolPlayDescription}</p>` : ''}
+                  ${tournament.bracketPlayDescription ? `<p style="margin: 8px 0; white-space: pre-line;">${tournament.bracketPlayDescription}</p>` : ''}
+                </div>
+                ` : ''}
 
                 <!-- What to Bring -->
                 <h2 style="font-size: 20px; color: #727D73; margin-top: 30px; margin-bottom: 15px;">What to Bring</h2>
@@ -216,8 +257,8 @@ export async function POST(request: NextRequest) {
               <!-- Footer -->
               <div style="text-align: center; padding: 20px; font-size: 13px; color: #666;">
                 <p style="margin: 0;">
-                  Hewwo Pwincess<br>
-                  All American FieldHouse, Monroeville, PA
+                  ${tournament.name}<br>
+                  ${tournament.location || 'Location TBD'}
                 </p>
               </div>
             </div>
@@ -226,9 +267,9 @@ export async function POST(request: NextRequest) {
       `;
 
       const result = await resend.emails.send({
-        from: "Hewwo Pwincess - Two Peas Pod Tournament <tournament@hewwopwincess.com>",
+        from: `${tournament.name} <tournament@hewwopwincess.com>`,
         to: [email],
-        subject: "Registration Confirmed - Two Peas Pod Tournament",
+        subject: `Registration Confirmed - ${tournament.name}`,
         html: emailHtml,
       });
 

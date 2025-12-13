@@ -53,6 +53,7 @@ export default async function TournamentSchedulePage({
 
   return (
     <SchedulePageClient
+      tournamentId={tournament.id}
       currentMatch={currentMatch}
       nextGame={nextGame}
       allMatches={allMatches}

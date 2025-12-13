@@ -17,7 +17,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 // Configure this to match your tournament ID
-const TOURNAMENT_ID = 1;
+const TOURNAMENT_ID = 6;
 
 async function seedPoolSchedule() {
   console.log("🏐 Seeding pool play schedule...\n");

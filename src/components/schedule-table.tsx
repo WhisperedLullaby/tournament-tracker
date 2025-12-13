@@ -22,6 +22,9 @@ interface ScheduleTableProps {
 export function ScheduleTable({ matches, podNames }: ScheduleTableProps) {
   const [filterPod, setFilterPod] = useState<number | null>(null);
 
+  // Get unique pod IDs from podNames map and sort them
+  const allPodIds = Array.from(podNames.keys()).sort((a, b) => a - b);
+
   // Filter by pod - only show games where pod is playing (not sitting)
   const filteredMatches = filterPod
     ? matches.filter(
@@ -89,7 +92,7 @@ export function ScheduleTable({ matches, podNames }: ScheduleTableProps) {
           >
             All Pods
           </Button>
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((pod) => (
+          {allPodIds.map((pod) => (
             <Button
               key={pod}
               variant={filterPod === pod ? "default" : "outline"}

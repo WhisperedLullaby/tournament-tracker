@@ -4,16 +4,16 @@ import { Button } from "@/components/ui/button";
 interface TournamentCTASectionProps {
   tournamentSlug: string;
   tournamentStatus: "upcoming" | "active" | "completed";
-  userRole?: "organizer" | "participant" | null;
+  hasRegisteredTeam?: boolean;
 }
 
 export function TournamentCTASection({
   tournamentSlug,
   tournamentStatus,
-  userRole,
+  hasRegisteredTeam,
 }: TournamentCTASectionProps) {
   const getCtaContent = () => {
-    if (tournamentStatus === "upcoming" && !userRole) {
+    if (tournamentStatus === "upcoming" && !hasRegisteredTeam) {
       return {
         title: "Ready to Compete?",
         description:

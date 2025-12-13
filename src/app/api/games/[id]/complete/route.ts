@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { poolMatches } from "@/lib/db/schema";
+import { poolMatches, tournaments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { updatePoolStandings } from "@/lib/db/standings";
 
@@ -41,22 +41,44 @@ export async function POST(
       );
     }
 
+    // Fetch tournament to get scoring rules
+    const tournament = await db.query.tournaments.findFirst({
+      where: eq(tournaments.id, game.tournamentId),
+    });
+
+    if (!tournament) {
+      return NextResponse.json(
+        { error: "Tournament not found" },
+        { status: 404 }
+      );
+    }
+
+    // Get scoring rules from tournament
+    const scoringRules = typeof tournament.scoringRules === 'string'
+      ? JSON.parse(tournament.scoringRules)
+      : tournament.scoringRules;
+    const endPoints = scoringRules?.endPoints || 21;
+    const cap = scoringRules?.cap || 25;
+    const winByTwo = scoringRules?.winByTwo !== false; // Default to true
+
     // Validate that the game has a valid ending score
     const teamAScore = game.teamAScore;
     const teamBScore = game.teamBScore;
     const scoreDiff = Math.abs(teamAScore - teamBScore);
     const maxScore = Math.max(teamAScore, teamBScore);
 
-    // Check win conditions: score >= 21 and win by 2, OR score cap of 25
+    // Check win conditions: score >= endPoints and win by 2 (if required), OR score cap
+    const winByTwoMet = !winByTwo || scoreDiff >= 2;
     const validWin =
-      (maxScore >= 21 && scoreDiff >= 2) || // Win by 2 at 21+
-      maxScore >= 25; // Score cap
+      (maxScore >= endPoints && winByTwoMet) || // Win at endPoints (with win-by-2 if required)
+      maxScore >= cap; // Score cap
 
     if (!validWin) {
+      const winByTwoMsg = winByTwo ? ` and win by 2` : '';
       return NextResponse.json(
         {
           error:
-            "Invalid game completion: must reach 21 and win by 2, or reach score cap of 25",
+            `Invalid game completion: must reach ${endPoints}${winByTwoMsg}, or reach score cap of ${cap}`,
         },
         { status: 400 }
       );

@@ -75,6 +75,9 @@ export function RegistrationForm({ tournament }: { tournament: Tournament }) {
 
         // Skip to confirm step if already signed in
         stepper.goTo("confirm");
+      } else if (!tournament.requireAuth) {
+        // If auth is not required, skip the auth step
+        stepper.goTo("confirm");
       }
 
       setIsCheckingAuth(false);
@@ -119,6 +122,15 @@ export function RegistrationForm({ tournament }: { tournament: Tournament }) {
   const validateConfirm = () => {
     const newErrors: Partial<FormData> = {};
     if (!formData.player1.trim()) newErrors.player1 = "Your name is required";
+
+    // Validate email if not authenticated
+    if (!user && !tournament.requireAuth) {
+      if (!formData.email.trim()) {
+        newErrors.email = "Email is required";
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        newErrors.email = "Please enter a valid email";
+      }
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -236,12 +248,34 @@ export function RegistrationForm({ tournament }: { tournament: Tournament }) {
             ),
             confirm: () => (
               <div className="space-y-4">
-                <div className="bg-muted/50 space-y-2 rounded-lg p-3 text-sm">
-                  <p>
-                    <strong>Signed in as:</strong>
-                  </p>
-                  <p className="text-muted-foreground">{user?.email}</p>
-                </div>
+                {user ? (
+                  <div className="bg-muted/50 space-y-2 rounded-lg p-3 text-sm">
+                    <p>
+                      <strong>Signed in as:</strong>
+                    </p>
+                    <p className="text-muted-foreground">{user?.email}</p>
+                  </div>
+                ) : (
+                  <div>
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="your.email@example.com"
+                      value={formData.email}
+                      onChange={(e) => updateField("email", e.target.value)}
+                      className={errors.email ? "border-destructive" : ""}
+                    />
+                    {errors.email && (
+                      <p className="text-destructive mt-1 text-sm">
+                        {errors.email}
+                      </p>
+                    )}
+                    <p className="text-muted-foreground mt-2 text-xs">
+                      We&apos;ll send tournament updates to this email
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <Label htmlFor="player1">Your Name (Captain)</Label>
@@ -258,10 +292,12 @@ export function RegistrationForm({ tournament }: { tournament: Tournament }) {
                       {errors.player1}
                     </p>
                   )}
-                  <p className="text-muted-foreground mt-2 text-xs">
-                    This is pre-filled from your Google account, but you can
-                    change it
-                  </p>
+                  {user && (
+                    <p className="text-muted-foreground mt-2 text-xs">
+                      This is pre-filled from your Google account, but you can
+                      change it
+                    </p>
+                  )}
                 </div>
 
                 {/* Cloudflare Turnstile CAPTCHA */}

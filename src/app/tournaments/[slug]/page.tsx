@@ -20,13 +20,26 @@ import { TournamentRulesSection } from "@/components/sections/tournament-rules-s
 import { TournamentCTASection } from "@/components/sections/tournament-cta-section";
 import { QuickActionsSubFooter } from "@/components/sections/quick-actions-subfooter";
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 
 export default function TournamentPage() {
-  const { tournament, userRole, isLoading } = useTournament();
+  const { tournament, userRole, hasRegisteredTeam, isLoading } = useTournament();
+  const searchParams = useSearchParams();
   const [registrationStatus, setRegistrationStatus] = useState<{
     isOpen: boolean;
     podCount: number;
   }>({ isOpen: true, podCount: 0 });
+
+  // Force reload after OAuth to ensure session is picked up
+  useEffect(() => {
+    if (searchParams.get("auth") === "success") {
+      // Remove the auth param and reload
+      const url = new URL(window.location.href);
+      url.searchParams.delete("auth");
+      window.history.replaceState({}, "", url.toString());
+      window.location.reload();
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (tournament) {
@@ -79,31 +92,31 @@ export default function TournamentPage() {
           "Inviting volleyball players of all skill levels to connect, play, and compete!"
         }
         rightContent={
-          registrationStatus.isOpen && !userRole ? (
+          registrationStatus.isOpen && !hasRegisteredTeam ? (
             <RegistrationForm tournament={tournament} />
           ) : (
             <Card className="border-primary/20 bg-card/90 w-full max-w-md shadow-xl backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="text-2xl">
-                  {userRole ? "You're Registered!" : "Registration Closed"}
+                  {hasRegisteredTeam ? "You're Registered!" : "Registration Closed"}
                 </CardTitle>
                 <CardDescription>
-                  {userRole
+                  {hasRegisteredTeam
                     ? "You're all set for the tournament!"
                     : `All ${tournament.maxPods} spots have been filled!`}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground mb-4">
-                  {userRole
+                  {hasRegisteredTeam
                     ? "Check the schedule and standings to prepare for tournament day."
                     : `Thank you for your interest. The tournament is now full with ${registrationStatus.podCount} registered pods.`}
                 </p>
                 <Button className="w-full" asChild>
                   <Link
-                    href={`/tournaments/${tournament.slug}/${userRole ? "schedule" : "standings"}`}
+                    href={`/tournaments/${tournament.slug}/${hasRegisteredTeam ? "schedule" : "standings"}`}
                   >
-                    {userRole ? "View Schedule" : "View Registered Teams"}
+                    {hasRegisteredTeam ? "View Schedule" : "View Registered Teams"}
                   </Link>
                 </Button>
               </CardContent>
@@ -135,7 +148,7 @@ export default function TournamentPage() {
       <TournamentCTASection
         tournamentSlug={tournament.slug}
         tournamentStatus={tournament.status as "upcoming" | "active" | "completed"}
-        userRole={userRole}
+        hasRegisteredTeam={hasRegisteredTeam}
       />
 
       {/* Quick Actions Sub-Footer */}

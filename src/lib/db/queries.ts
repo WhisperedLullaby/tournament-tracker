@@ -80,11 +80,19 @@ export async function getAllPods(tournamentId: number): Promise<PodData[]> {
 }
 
 /**
- * Check if registration is open for a tournament (less than 9 pods)
+ * Check if registration is open for a tournament (less than maxPods)
  */
 export async function isRegistrationOpen(tournamentId: number): Promise<boolean> {
+  const tournament = await db.query.tournaments.findFirst({
+    where: eq(tournaments.id, tournamentId),
+  });
+
+  if (!tournament) {
+    return false;
+  }
+
   const podCount = await getPodCount(tournamentId);
-  return podCount < 9;
+  return podCount < tournament.maxPods;
 }
 
 /**
@@ -340,16 +348,28 @@ export {
 
 /**
  * Check if pool play is complete for a tournament
- * Returns true if all 6 pool play games have been completed
+ * Returns true if all pool play games have been completed
  */
 export async function isPoolPlayComplete(tournamentId: number): Promise<boolean> {
   try {
+    // Get total number of pool matches for this tournament
+    const totalMatches = await db
+      .select({ count: count() })
+      .from(poolMatches)
+      .where(eq(poolMatches.tournamentId, tournamentId));
+
+    const total = totalMatches[0]?.count || 0;
+
+    // Get number of completed matches
     const completedMatches = await db
       .select({ count: count() })
       .from(poolMatches)
       .where(sql`${poolMatches.tournamentId} = ${tournamentId} AND ${poolMatches.status} = 'completed'`);
 
-    return (completedMatches[0]?.count || 0) >= 6;
+    const completed = completedMatches[0]?.count || 0;
+
+    // Pool play is complete when all matches are completed
+    return total > 0 && completed >= total;
   } catch (error) {
     console.error("Error checking pool play completion:", error);
     return false;
@@ -358,10 +378,16 @@ export async function isPoolPlayComplete(tournamentId: number): Promise<boolean>
 
 /**
  * Create bracket teams from final pool standings for a tournament
- * Creates 3 teams based on final standings:
- * - Team A (1st seed): Places 1, 5, 9
- * - Team B (2nd seed): Places 2, 6, 7
- * - Team C (3rd seed): Places 3, 4, 8
+ * Creates 4 balanced teams using custom snake draft pattern:
+ * - Round 1: Top seeds (1, 2, 3, 4)
+ * - Round 2: Bottom seeds (12, 11, 9, 10) - pairs top with bottom
+ * - Round 3: Middle seeds (7, 8, 6, 5)
+ *
+ * Result:
+ * - Team A: Seeds 1, 12, 7 (sum = 20)
+ * - Team B: Seeds 2, 11, 8 (sum = 21)
+ * - Team C: Seeds 3, 9, 6 (sum = 18)
+ * - Team D: Seeds 4, 10, 5 (sum = 19)
  *
  * Returns the created teams or existing teams if already created
  */
@@ -379,47 +405,59 @@ export async function createBracketTeamsFromStandings(tournamentId: number) {
     // Get final standings
     const standings = await getPoolStandings(tournamentId);
 
-    if (standings.length < 9) {
-      throw new Error("Not enough pods to create bracket teams");
+    if (standings.length < 12) {
+      throw new Error("Not enough pods to create bracket teams (need 12 pods)");
     }
 
-    // Create Team A (1st seed): Places 1, 5, 9
+    // Create Team A: Seeds 1, 12, 7
     const teamA = await db
       .insert(bracketTeams)
       .values({
         tournamentId,
         teamName: "Team A",
-        pod1Id: standings[0].podId,
-        pod2Id: standings[4].podId,
-        pod3Id: standings[8].podId,
+        pod1Id: standings[0].podId,  // Seed 1
+        pod2Id: standings[11].podId, // Seed 12
+        pod3Id: standings[6].podId,  // Seed 7
       })
       .returning();
 
-    // Create Team B (2nd seed): Places 2, 6, 7
+    // Create Team B: Seeds 2, 11, 8
     const teamB = await db
       .insert(bracketTeams)
       .values({
         tournamentId,
         teamName: "Team B",
-        pod1Id: standings[1].podId,
-        pod2Id: standings[5].podId,
-        pod3Id: standings[6].podId,
+        pod1Id: standings[1].podId,  // Seed 2
+        pod2Id: standings[10].podId, // Seed 11
+        pod3Id: standings[7].podId,  // Seed 8
       })
       .returning();
 
-    // Create Team C (3rd seed): Places 3, 4, 8
+    // Create Team C: Seeds 3, 9, 6
     const teamC = await db
       .insert(bracketTeams)
       .values({
         tournamentId,
         teamName: "Team C",
-        pod1Id: standings[2].podId,
-        pod2Id: standings[3].podId,
-        pod3Id: standings[7].podId,
+        pod1Id: standings[2].podId,  // Seed 3
+        pod2Id: standings[8].podId,  // Seed 9
+        pod3Id: standings[5].podId,  // Seed 6
       })
       .returning();
 
-    return [teamA[0], teamB[0], teamC[0]];
+    // Create Team D: Seeds 4, 10, 5
+    const teamD = await db
+      .insert(bracketTeams)
+      .values({
+        tournamentId,
+        teamName: "Team D",
+        pod1Id: standings[3].podId,  // Seed 4
+        pod2Id: standings[9].podId,  // Seed 10
+        pod3Id: standings[4].podId,  // Seed 5
+      })
+      .returning();
+
+    return [teamA[0], teamB[0], teamC[0], teamD[0]];
   } catch (error) {
     console.error("Error creating bracket teams:", error);
     throw error;
@@ -454,71 +492,96 @@ export async function seedBracketMatches(tournamentId: number) {
       .where(eq(bracketTeams.tournamentId, tournamentId))
       .orderBy(asc(bracketTeams.teamName));
 
-    if (teams.length < 3) {
-      throw new Error("Not enough bracket teams to create matches");
+    if (teams.length < 4) {
+      throw new Error("Not enough bracket teams to create matches (need 4 teams)");
     }
 
     const teamA = teams.find(t => t.teamName === "Team A");
     const teamB = teams.find(t => t.teamName === "Team B");
     const teamC = teams.find(t => t.teamName === "Team C");
+    const teamD = teams.find(t => t.teamName === "Team D");
 
-    if (!teamA || !teamB || !teamC) {
+    if (!teamA || !teamB || !teamC || !teamD) {
       throw new Error("Could not find all bracket teams");
     }
 
-    // Game 1: Team B vs Team C (winners bracket)
-    const game1 = await db
-      .insert(bracketMatches)
-      .values({
-        tournamentId,
-        gameNumber: 1,
-        bracketType: "winners",
-        teamAId: teamB.id,
-        teamBId: teamC.id,
-        status: "pending",
-      })
-      .returning();
+    // Game 1: Team A (1st seed) vs Team C (3rd seed)
+    await db.insert(bracketMatches).values({
+      tournamentId,
+      gameNumber: 1,
+      bracketType: "winners",
+      teamAId: teamA.id,
+      teamBId: teamC.id,
+      status: "pending",
+    });
 
-    // Game 2: Team A vs Winner G1 (winners bracket) - teamBId will be filled when G1 completes
-    const game2 = await db
-      .insert(bracketMatches)
-      .values({
-        tournamentId,
-        gameNumber: 2,
-        bracketType: "winners",
-        teamAId: teamA.id,
-        teamBId: null, // Winner of Game 1
-        status: "pending",
-      })
-      .returning();
+    // Game 2: Team B (2nd seed) vs Team D (4th seed)
+    await db.insert(bracketMatches).values({
+      tournamentId,
+      gameNumber: 2,
+      bracketType: "winners",
+      teamAId: teamB.id,
+      teamBId: teamD.id,
+      status: "pending",
+    });
 
-    // Game 3: Loser G1 vs Loser G2 (losers bracket)
-    const game3 = await db
-      .insert(bracketMatches)
-      .values({
-        tournamentId,
-        gameNumber: 3,
-        bracketType: "losers",
-        teamAId: null, // Loser of Game 1
-        teamBId: null, // Loser of Game 2
-        status: "pending",
-      })
-      .returning();
+    // Game 3: Game 1 Winner vs Game 2 Winner (Winner's Bracket Final)
+    await db.insert(bracketMatches).values({
+      tournamentId,
+      gameNumber: 3,
+      bracketType: "winners",
+      teamAId: null, // Winner of Game 1
+      teamBId: null, // Winner of Game 2
+      status: "pending",
+    });
 
-    // Game 4: Winner G2 vs Winner G3 (championship potential)
-    const game4 = await db
-      .insert(bracketMatches)
-      .values({
-        tournamentId,
-        gameNumber: 4,
-        bracketType: "winners",
-        teamAId: null, // Winner of Game 2
-        teamBId: null, // Winner of Game 3
-        status: "pending",
-      })
-      .returning();
+    // Game 4: Game 1 Loser vs Game 2 Loser (Loser's Bracket Round 1)
+    await db.insert(bracketMatches).values({
+      tournamentId,
+      gameNumber: 4,
+      bracketType: "losers",
+      teamAId: null, // Loser of Game 1
+      teamBId: null, // Loser of Game 2
+      status: "pending",
+    });
 
-    return [game1[0], game2[0], game3[0], game4[0]];
+    // Game 5: Game 4 Winner vs Game 3 Loser (Loser's Bracket Final)
+    await db.insert(bracketMatches).values({
+      tournamentId,
+      gameNumber: 5,
+      bracketType: "losers",
+      teamAId: null, // Winner of Game 4
+      teamBId: null, // Loser of Game 3
+      status: "pending",
+    });
+
+    // Game 6: Game 3 Winner vs Game 5 Winner (Championship)
+    await db.insert(bracketMatches).values({
+      tournamentId,
+      gameNumber: 6,
+      bracketType: "championship",
+      teamAId: null, // Winner of Game 3 (undefeated)
+      teamBId: null, // Winner of Game 5 (from loser's bracket)
+      status: "pending",
+    });
+
+    // Game 7: Game 6 Winner vs Game 6 Loser IF FIRST LOSS (Championship rematch - only if needed)
+    await db.insert(bracketMatches).values({
+      tournamentId,
+      gameNumber: 7,
+      bracketType: "championship",
+      teamAId: null, // Winner of Game 6
+      teamBId: null, // Loser of Game 6 (only if they have just 1 loss)
+      status: "pending",
+    });
+
+    const allMatches = await db
+      .select()
+      .from(bracketMatches)
+      .where(eq(bracketMatches.tournamentId, tournamentId))
+      .orderBy(asc(bracketMatches.gameNumber));
+
+    return allMatches;
   } catch (error) {
     console.error("Error seeding bracket matches:", error);
     throw error;
@@ -603,78 +666,86 @@ export async function advanceBracketTeams(tournamentId: number, completedGameNum
   try {
     switch (completedGameNumber) {
       case 1:
-        // Game 1 complete: Winner to G2, Loser to G3
+        // Game 1 complete: Winner to G3, Loser to G4
         await db
           .update(bracketMatches)
-          .set({ teamBId: winnerId })
-          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 2`);
+          .set({ teamAId: winnerId })
+          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 3`);
 
         await db
           .update(bracketMatches)
           .set({ teamAId: loserId })
-          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 3`);
+          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 4`);
         break;
 
       case 2:
-        // Game 2 complete: Winner to G4, Loser to G3
+        // Game 2 complete: Winner to G3, Loser to G4
         await db
           .update(bracketMatches)
-          .set({ teamAId: winnerId })
-          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 4`);
+          .set({ teamBId: winnerId })
+          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 3`);
 
         await db
           .update(bracketMatches)
           .set({ teamBId: loserId })
-          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 3`);
-        break;
-
-      case 3:
-        // Game 3 complete: Winner to G4
-        await db
-          .update(bracketMatches)
-          .set({ teamBId: winnerId })
           .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 4`);
         break;
 
+      case 3:
+        // Game 3 complete: Winner to G6, Loser to G5
+        await db
+          .update(bracketMatches)
+          .set({ teamAId: winnerId })
+          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 6`);
+
+        await db
+          .update(bracketMatches)
+          .set({ teamBId: loserId })
+          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 5`);
+        break;
+
       case 4:
-        // Game 4 complete: Check if G5 is needed
-        // If the winner of G4 is the team that lost G2 (came from losers bracket), need G5
-        const game2 = await db
+        // Game 4 complete: Winner to G5
+        await db
+          .update(bracketMatches)
+          .set({ teamAId: winnerId })
+          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 5`);
+        break;
+
+      case 5:
+        // Game 5 complete: Winner to G6 (championship)
+        await db
+          .update(bracketMatches)
+          .set({ teamBId: winnerId })
+          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 6`);
+        break;
+
+      case 6:
+        // Game 6 complete: If loser has only 1 loss, they advance to G7 for rematch
+        const game3 = await db
           .select()
           .from(bracketMatches)
-          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 2`)
+          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 3`)
           .limit(1);
 
-        if (!game2[0]) break;
+        if (game3[0]) {
+          const game3WinnerId = game3[0].teamAScore > game3[0].teamBScore ? game3[0].teamAId : game3[0].teamBId;
 
-        const game2WinnerId = game2[0].teamAScore > game2[0].teamBScore ? game2[0].teamAId : game2[0].teamBId;
-
-        // If G4 winner is NOT the G2 winner, they need a rematch (G5)
-        if (winnerId !== game2WinnerId) {
-          // Create Game 5 if it doesn't exist
-          const existingGame5 = await db
-            .select()
-            .from(bracketMatches)
-            .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 5`)
-            .limit(1);
-
-          if (existingGame5.length === 0) {
+          // If the loser of G6 is the G3 winner (came from winner's bracket), they get a rematch
+          if (loserId === game3WinnerId) {
             await db
-              .insert(bracketMatches)
-              .values({
-                tournamentId,
-                gameNumber: 5,
-                bracketType: "championship",
-                teamAId: game2WinnerId,
-                teamBId: winnerId,
-                status: "pending",
-              });
+              .update(bracketMatches)
+              .set({
+                teamAId: winnerId,
+                teamBId: loserId,
+              })
+              .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 7`);
           }
         }
         break;
 
-      case 5:
-        // Game 5 complete: Tournament over, winner is champion
+      case 7:
+        // Game 7 complete: Tournament over, winner is champion
         break;
 
       default:
@@ -887,6 +958,7 @@ export async function isTournamentOrganizer(
 
 /**
  * Get user's role in a tournament
+ * Prioritizes "organizer" over "participant" if user has both roles
  * @param userId - The user's ID
  * @param tournamentId - The tournament ID
  * @returns The user's role or null if no role
@@ -896,6 +968,7 @@ export async function getUserTournamentRole(
   tournamentId: number
 ): Promise<"organizer" | "participant" | null> {
   try {
+    // Get all roles for this user in this tournament
     const result = await db
       .select({ role: tournamentRoles.role })
       .from(tournamentRoles)
@@ -904,10 +977,25 @@ export async function getUserTournamentRole(
           eq(tournamentRoles.userId, userId),
           eq(tournamentRoles.tournamentId, tournamentId)
         )
-      )
-      .limit(1);
+      );
 
-    return result[0]?.role || null;
+    if (result.length === 0) {
+      return null;
+    }
+
+    // Prioritize organizer role over participant
+    const hasOrganizerRole = result.some((r) => r.role === "organizer");
+    if (hasOrganizerRole) {
+      return "organizer";
+    }
+
+    // Otherwise return participant if they have it
+    const hasParticipantRole = result.some((r) => r.role === "participant");
+    if (hasParticipantRole) {
+      return "participant";
+    }
+
+    return null;
   } catch (error) {
     console.error("Error fetching user tournament role:", error);
     return null;

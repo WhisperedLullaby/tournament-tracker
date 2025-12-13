@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { tournaments, tournamentRoles } from "@/lib/db/schema";
+import { tournaments } from "@/lib/db/schema";
 import { createClient } from "@/lib/auth/server";
-import { eq, and } from "drizzle-orm";
+import { getUserTournamentRole } from "@/lib/db/queries";
+import { eq } from "drizzle-orm";
 
 interface UpdateTournamentData {
   name?: string;
@@ -13,6 +14,7 @@ interface UpdateTournamentData {
   registrationDeadline?: string;
   registrationOpenDate?: string;
   isPublic?: boolean;
+  requireAuth?: boolean;
   status?: "upcoming" | "active" | "completed";
   poolPlayDescription?: string;
   bracketPlayDescription?: string;
@@ -47,14 +49,9 @@ export async function PATCH(
     }
 
     // Check if user is organizer of this tournament
-    const participantRole = await db.query.tournamentRoles.findFirst({
-      where: and(
-        eq(tournamentRoles.userId, user.id),
-        eq(tournamentRoles.tournamentId, tournamentIdNum)
-      ),
-    });
+    const userRole = await getUserTournamentRole(user.id, tournamentIdNum);
 
-    if (!participantRole || participantRole.role !== "organizer") {
+    if (userRole !== "organizer") {
       return NextResponse.json(
         { error: "Not authorized to edit this tournament" },
         { status: 403 }
@@ -72,6 +69,7 @@ export async function PATCH(
       registrationDeadline,
       registrationOpenDate,
       isPublic,
+      requireAuth,
       status,
       poolPlayDescription,
       bracketPlayDescription,
@@ -102,6 +100,7 @@ export async function PATCH(
         ? new Date(registrationOpenDate)
         : null;
     if (isPublic !== undefined) updateData.isPublic = isPublic;
+    if (requireAuth !== undefined) updateData.requireAuth = requireAuth;
     if (status !== undefined) updateData.status = status;
     if (poolPlayDescription !== undefined)
       updateData.poolPlayDescription = poolPlayDescription || null;
@@ -169,14 +168,9 @@ export async function DELETE(
     }
 
     // Check if user is organizer of this tournament
-    const participantRole = await db.query.tournamentRoles.findFirst({
-      where: and(
-        eq(tournamentRoles.userId, user.id),
-        eq(tournamentRoles.tournamentId, tournamentIdNum)
-      ),
-    });
+    const userRole = await getUserTournamentRole(user.id, tournamentIdNum);
 
-    if (!participantRole || participantRole.role !== "organizer") {
+    if (userRole !== "organizer") {
       return NextResponse.json(
         { error: "Not authorized to delete this tournament" },
         { status: 403 }

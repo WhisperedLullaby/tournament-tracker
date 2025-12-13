@@ -88,6 +88,7 @@ export const tournaments = pgTable("tournaments", {
   registrationDeadline: timestamp("registration_deadline"),
   registrationOpenDate: timestamp("registration_open_date"),
   isPublic: boolean("is_public").default(true).notNull(),
+  requireAuth: boolean("require_auth").default(true).notNull(), // Require authentication to register
   createdBy: text("created_by").notNull(), // User ID of tournament creator
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -100,8 +101,8 @@ export const pods = pgTable(
     id: serial("id").primaryKey(),
     tournamentId: integer("tournament_id")
       .notNull()
-      .references(() => tournaments.id), // Link to tournament
-    userId: text("user_id").notNull(), // Supabase auth.users.id (UUID as text) - captain
+      .references(() => tournaments.id, { onDelete: "cascade" }), // Link to tournament
+    userId: text("user_id"), // Supabase auth.users.id (UUID as text) - captain (nullable for non-auth tournaments)
     email: text("email").notNull(), // Captain's email
     name: text("name").notNull(), // e.g., "John & Sarah" or team name
     player1: text("player1").notNull(), // Required for all tournament types
@@ -111,7 +112,8 @@ export const pods = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
-    // Unique constraint: one pod per user per tournament
+    // Unique constraint: one pod per user per tournament (only applies when userId is not null)
+    // Note: For non-auth tournaments, duplicate prevention is handled by email validation in API
     uniqueUserTournament: unique("unique_user_tournament").on(
       table.userId,
       table.tournamentId
@@ -124,7 +126,7 @@ export const poolMatches = pgTable("pool_matches", {
   id: serial("id").primaryKey(),
   tournamentId: integer("tournament_id")
     .notNull()
-    .references(() => tournaments.id), // Link to tournament
+    .references(() => tournaments.id, { onDelete: "cascade" }), // Link to tournament
   gameNumber: integer("game_number").notNull(), // 1-6 for pool play
   roundNumber: integer("round_number").notNull(), // 1-4
   scheduledTime: varchar("scheduled_time", { length: 20 }), // "10:00 AM"
@@ -144,7 +146,7 @@ export const poolStandings = pgTable("pool_standings", {
   id: serial("id").primaryKey(),
   tournamentId: integer("tournament_id")
     .notNull()
-    .references(() => tournaments.id), // Link to tournament
+    .references(() => tournaments.id, { onDelete: "cascade" }), // Link to tournament
   podId: integer("pod_id")
     .notNull()
     .references(() => pods.id),
@@ -160,7 +162,7 @@ export const bracketTeams = pgTable("bracket_teams", {
   id: serial("id").primaryKey(),
   tournamentId: integer("tournament_id")
     .notNull()
-    .references(() => tournaments.id), // Link to tournament
+    .references(() => tournaments.id, { onDelete: "cascade" }), // Link to tournament
   teamName: text("team_name").notNull(), // "A", "B", "C"
   pod1Id: integer("pod1_id")
     .notNull()
@@ -179,7 +181,7 @@ export const bracketMatches = pgTable("bracket_matches", {
   id: serial("id").primaryKey(),
   tournamentId: integer("tournament_id")
     .notNull()
-    .references(() => tournaments.id), // Link to tournament
+    .references(() => tournaments.id, { onDelete: "cascade" }), // Link to tournament
   gameNumber: integer("game_number").notNull(), // 1-5
   bracketType: bracketTypeEnum("bracket_type").notNull(),
   teamAId: integer("team_a_id").references(() => bracketTeams.id),

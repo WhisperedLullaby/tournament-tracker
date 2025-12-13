@@ -20,6 +20,7 @@ export function BracketTeamCards({ teams, pods }: BracketTeamCardsProps) {
     if (teamName === "Team A") return 1;
     if (teamName === "Team B") return 2;
     if (teamName === "Team C") return 3;
+    if (teamName === "Team D") return 4;
     return 0;
   };
 
@@ -28,7 +29,16 @@ export function BracketTeamCards({ teams, pods }: BracketTeamCardsProps) {
     if (seed === 1) return <Trophy className="h-5 w-5 text-yellow-500" />;
     if (seed === 2) return <Medal className="h-5 w-5 text-slate-400" />;
     if (seed === 3) return <Medal className="h-5 w-5 text-amber-700" />;
+    if (seed === 4) return <Medal className="h-5 w-5 text-blue-600" />;
     return null;
+  };
+
+  // Helper to get ordinal suffix
+  const getOrdinalSuffix = (seed: number): string => {
+    if (seed === 1) return "st";
+    if (seed === 2) return "nd";
+    if (seed === 3) return "rd";
+    return "th";
   };
 
   // Helper to get pod name
@@ -45,13 +55,14 @@ export function BracketTeamCards({ teams, pods }: BracketTeamCardsProps) {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {sortedTeams.map((team) => {
           const seed = getSeedNumber(team.teamName);
           const seedColors = {
             1: "border-yellow-500/30 bg-yellow-500/5",
             2: "border-slate-400/30 bg-slate-400/5",
             3: "border-amber-700/30 bg-amber-700/5",
+            4: "border-blue-600/30 bg-blue-600/5",
           };
 
           return (
@@ -67,7 +78,7 @@ export function BracketTeamCards({ teams, pods }: BracketTeamCardsProps) {
                   <div className="flex items-center gap-2">
                     {getSeedIcon(seed)}
                     <span className="text-xs text-muted-foreground font-normal">
-                      {seed}{seed === 1 ? "st" : seed === 2 ? "nd" : "rd"} Seed
+                      {seed}{getOrdinalSuffix(seed)} Seed
                     </span>
                   </div>
                 </CardTitle>

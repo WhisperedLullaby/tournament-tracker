@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+import { useState } from "react";
 
 interface QuickActionsSubFooterProps {
   tournamentSlug: string;
@@ -11,6 +15,38 @@ export function QuickActionsSubFooter({
   tournamentStatus,
   userRole,
 }: QuickActionsSubFooterProps) {
+  const [signingIn, setSigningIn] = useState(false);
+
+  const handleSignIn = async () => {
+    setSigningIn(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(window.location.pathname)}`,
+        },
+      });
+      if (error) {
+        console.error("Sign in error:", error);
+        alert("Failed to sign in. Please try again.");
+        setSigningIn(false);
+      }
+    } catch (error) {
+      console.error("Sign in error:", error);
+      alert("Failed to sign in. Please try again.");
+      setSigningIn(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      window.location.reload();
+    } catch (error) {
+      console.error("Sign out error:", error);
+      alert("Failed to sign out. Please try again.");
+    }
+  };
   return (
     <section className="bg-muted/20 py-12 md:py-16">
       <div className="container mx-auto px-4">
@@ -58,26 +94,53 @@ export function QuickActionsSubFooter({
             </Link>
           )}
 
-          {userRole === "organizer" && (
-            <>
-              <Link
-                href={`/tournaments/${tournamentSlug}/scorekeeper`}
-                className="p-6 bg-purple-50 border-2 border-purple-500 rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
-              >
-                <div className="text-3xl mb-2">📊</div>
-                <h3 className="font-semibold text-purple-900">Scorekeeper</h3>
-                <p className="text-sm text-purple-700 mt-1">Manage scores</p>
-              </Link>
+          <Link
+            href={`/tournaments/${tournamentSlug}/scorekeeper`}
+            className="p-6 bg-purple-50 border-2 border-purple-500 rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
+          >
+            <div className="text-3xl mb-2">📊</div>
+            <h3 className="font-semibold text-purple-900">Scorekeeper</h3>
+            <p className="text-sm text-purple-700 mt-1">Manage scores</p>
+          </Link>
 
-              <Link
-                href={`/tournaments/${tournamentSlug}/settings`}
-                className="p-6 bg-green-50 border-2 border-green-500 rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
-              >
-                <div className="text-3xl mb-2">⚙️</div>
-                <h3 className="font-semibold text-green-900">Settings</h3>
-                <p className="text-sm text-green-700 mt-1">Manage tournament</p>
-              </Link>
-            </>
+          {userRole === "organizer" && (
+            <Link
+              href={`/tournaments/${tournamentSlug}/settings`}
+              className="p-6 bg-green-50 border-2 border-green-500 rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
+            >
+              <div className="text-3xl mb-2">⚙️</div>
+              <h3 className="font-semibold text-green-900">Settings</h3>
+              <p className="text-sm text-green-700 mt-1">Manage tournament</p>
+            </Link>
+          )}
+
+          {!userRole && (
+            <button
+              onClick={handleSignIn}
+              disabled={signingIn}
+              className="p-6 bg-yellow-50 border-2 border-yellow-500 rounded-lg shadow-sm hover:shadow-md transition-shadow text-center disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="text-3xl mb-2">🔑</div>
+              <h3 className="font-semibold text-yellow-900">
+                {signingIn ? "Signing In..." : "Sign In"}
+              </h3>
+              <p className="text-sm text-yellow-700 mt-1">
+                Sign in with Google
+              </p>
+            </button>
+          )}
+
+          {userRole && (
+            <button
+              onClick={handleSignOut}
+              className="p-6 bg-red-50 border-2 border-red-500 rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
+            >
+              <div className="text-3xl mb-2">🚪</div>
+              <h3 className="font-semibold text-red-900">Sign Out</h3>
+              <p className="text-sm text-red-700 mt-1">
+                Log out of account
+              </p>
+            </button>
           )}
         </div>
       </div>

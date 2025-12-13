@@ -35,6 +35,7 @@ interface TournamentData {
   registrationDeadline: string;
   registrationOpenDate: string;
   isPublic: boolean;
+  requireAuth: boolean;
   status: "upcoming" | "active" | "completed";
 }
 
@@ -87,6 +88,7 @@ export async function POST(request: NextRequest) {
       registrationDeadline,
       registrationOpenDate,
       isPublic,
+      requireAuth,
       status,
     } = body;
 
@@ -166,6 +168,7 @@ export async function POST(request: NextRequest) {
           ? new Date(registrationOpenDate)
           : null,
         isPublic,
+        requireAuth,
         status,
         createdBy: user.id,
       })

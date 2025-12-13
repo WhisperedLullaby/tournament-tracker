@@ -25,14 +25,26 @@ export default function TournamentScorekeeperPage() {
     new Map()
   );
   const [isBracketPlay, setIsBracketPlay] = useState(false);
+  const [totalPoolMatches, setTotalPoolMatches] = useState(0);
 
   // Fetch initial data
   const fetchData = useCallback(async () => {
     if (!tournament) return;
 
     try {
+      // Get total pool matches count for this tournament
+      const { data: allPoolMatches, error: totalCountError } = await supabase
+        .from("pool_matches")
+        .select("*", { count: "exact" })
+        .eq("tournament_id", tournament.id);
+
+      if (totalCountError) throw totalCountError;
+
+      const totalCount = allPoolMatches?.length || 0;
+      setTotalPoolMatches(totalCount);
+
       // Check if pool play is complete
-      const { data: poolMatches, error: poolCountError } = await supabase
+      const { data: completedPoolMatches, error: poolCountError } = await supabase
         .from("pool_matches")
         .select("*", { count: "exact" })
         .eq("tournament_id", tournament.id)
@@ -40,7 +52,8 @@ export default function TournamentScorekeeperPage() {
 
       if (poolCountError) throw poolCountError;
 
-      const isPoolComplete = (poolMatches?.length || 0) >= 6;
+      const completedCount = completedPoolMatches?.length || 0;
+      const isPoolComplete = totalCount > 0 && completedCount >= totalCount;
       setIsBracketPlay(isPoolComplete);
 
       // Fetch all pods for team names
@@ -387,11 +400,12 @@ export default function TournamentScorekeeperPage() {
         return;
       }
 
-      // If this was the 6th pool game, initialize bracket
+      // If this was the last pool game, initialize bracket
       if (
         !isBracketPlay &&
         "gameNumber" in currentGame &&
-        currentGame.gameNumber === 6
+        totalPoolMatches > 0 &&
+        currentGame.gameNumber === totalPoolMatches
       ) {
         try {
           const bracketResponse = await fetch("/api/bracket/initialize", {
@@ -420,12 +434,21 @@ export default function TournamentScorekeeperPage() {
 
   // Check if game can be completed
   const canCompleteGame = (): boolean => {
-    if (!currentGame) return false;
+    if (!currentGame || !tournament) return false;
     const { teamAScore, teamBScore } = currentGame;
     const maxScore = Math.max(teamAScore, teamBScore);
     const scoreDiff = Math.abs(teamAScore - teamBScore);
 
-    return (maxScore >= 21 && scoreDiff >= 2) || maxScore >= 25;
+    // Get scoring rules from tournament
+    const scoringRules = typeof tournament.scoringRules === 'string'
+      ? JSON.parse(tournament.scoringRules)
+      : tournament.scoringRules;
+    const endPoints = scoringRules?.endPoints || 21;
+    const cap = scoringRules?.cap || 25;
+    const winByTwo = scoringRules?.winByTwo !== false;
+
+    const winByTwoMet = !winByTwo || scoreDiff >= 2;
+    return (maxScore >= endPoints && winByTwoMet) || maxScore >= cap;
   };
 
   if (loading) {

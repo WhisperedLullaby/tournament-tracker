@@ -23,6 +23,7 @@ const TOURNAMENT_NOTES = [
 ];
 
 interface SchedulePageClientProps {
+  tournamentId: number;
   currentMatch: PoolMatch | null;
   nextGame: PoolMatch | null;
   allMatches: PoolMatch[];
@@ -33,6 +34,7 @@ interface SchedulePageClientProps {
 }
 
 export function SchedulePageClient({
+  tournamentId,
   currentMatch: initialCurrentMatch,
   nextGame: initialNextGame,
   allMatches: initialAllMatches,
@@ -47,6 +49,8 @@ export function SchedulePageClient({
     initialCurrentMatch
   );
   const [nextGame, setNextGame] = useState<PoolMatch | null>(initialNextGame);
+  const [liveBracketMatches, setLiveBracketMatches] = useState<BracketMatch[]>(bracketMatches);
+  const [liveBracketTeams, setLiveBracketTeams] = useState<BracketTeam[]>(bracketTeams);
 
   // Ref to prevent multiple simultaneous refreshes
   const isRefreshing = useRef(false);
@@ -118,15 +122,61 @@ export function SchedulePageClient({
         const next = mappedMatches.find((m) => m.status === "pending");
         setNextGame(next || null);
       }
+
+      // Fetch bracket matches for this tournament
+      const { data: bracketMatchesData, error: bracketError } = await supabase
+        .from("bracket_matches")
+        .select("*")
+        .eq("tournament_id", tournamentId)
+        .order("game_number", { ascending: true });
+
+      if (!bracketError && bracketMatchesData) {
+        const mappedBracketMatches: BracketMatch[] = bracketMatchesData.map((m) => ({
+          id: m.id,
+          tournamentId: m.tournament_id,
+          gameNumber: m.game_number,
+          bracketType: m.bracket_type,
+          teamAId: m.team_a_id,
+          teamBId: m.team_b_id,
+          teamAScore: m.team_a_score,
+          teamBScore: m.team_b_score,
+          status: m.status,
+          createdAt: new Date(m.created_at),
+          updatedAt: new Date(m.updated_at),
+        }));
+        setLiveBracketMatches(mappedBracketMatches);
+      }
+
+      // Fetch bracket teams for this tournament
+      const { data: bracketTeamsData, error: teamsError } = await supabase
+        .from("bracket_teams")
+        .select("*")
+        .eq("tournament_id", tournamentId)
+        .order("team_name", { ascending: true });
+
+      if (!teamsError && bracketTeamsData) {
+        const mappedBracketTeams: BracketTeam[] = bracketTeamsData.map((t) => ({
+          id: t.id,
+          tournamentId: t.tournament_id,
+          teamName: t.team_name,
+          pod1Id: t.pod1_id,
+          pod2Id: t.pod2_id,
+          pod3Id: t.pod3_id,
+          createdAt: new Date(t.created_at),
+        }));
+        setLiveBracketTeams(mappedBracketTeams);
+      }
     } catch (error) {
       console.error("Error refreshing matches:", error);
     } finally {
       isRefreshing.current = false;
     }
-  }, []);
+  }, [tournamentId]);
 
-  // Subscribe to real-time updates
+  // Subscribe to real-time updates with fallback polling
   useEffect(() => {
+    console.log('[Schedule] Setting up realtime subscriptions for tournament:', tournamentId);
+
     // Use a more specific channel name with timestamp to ensure uniqueness
     const channelName = `schedule-updates-${Date.now()}`;
 
@@ -135,22 +185,59 @@ export function SchedulePageClient({
       .on(
         "postgres_changes",
         {
-          event: "UPDATE", // Only listen to UPDATEs (scores, status changes)
+          event: "*", // Listen to all events (INSERT, UPDATE, DELETE)
           schema: "public",
           table: "pool_matches",
+          filter: `tournament_id=eq.${tournamentId}`,
         },
-        () => {
-          // When any change occurs, refresh all matches
+        (payload) => {
+          console.log('[Schedule] Pool match changed:', payload);
           refreshMatches();
         }
       )
-      .subscribe();
+      .on(
+        "postgres_changes",
+        {
+          event: "*", // Listen to all events
+          schema: "public",
+          table: "bracket_matches",
+          filter: `tournament_id=eq.${tournamentId}`,
+        },
+        (payload) => {
+          console.log('[Schedule] Bracket match changed:', payload);
+          refreshMatches();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "bracket_teams",
+          filter: `tournament_id=eq.${tournamentId}`,
+        },
+        (payload) => {
+          console.log('[Schedule] Bracket team changed:', payload);
+          refreshMatches();
+        }
+      )
+      .subscribe((status) => {
+        console.log('[Schedule] Subscription status:', status);
+      });
+
+    // Fallback: Poll every 3 seconds as backup
+    const pollInterval = setInterval(() => {
+      console.log('[Schedule] Polling for updates (fallback)');
+      refreshMatches();
+    }, 3000);
 
     // Cleanup subscription on unmount
     return () => {
+      console.log('[Schedule] Cleaning up subscriptions');
+      clearInterval(pollInterval);
       supabase.removeChannel(channel);
     };
-  }, [refreshMatches]);
+  }, [refreshMatches, tournamentId]);
 
   // Combine next game pods for the NextUp component
   const nextGamePods =
@@ -243,11 +330,11 @@ export function SchedulePageClient({
 
               <TabsContent value="bracket" className="space-y-6 mt-6">
                 <BracketDisplay
-                  matches={bracketMatches}
-                  teams={bracketTeams}
+                  matches={liveBracketMatches}
+                  teams={liveBracketTeams}
                   pods={podNames}
                 />
-                <BracketTeamCards teams={bracketTeams} pods={podNames} />
+                <BracketTeamCards teams={liveBracketTeams} pods={podNames} />
               </TabsContent>
             </Tabs>
           ) : (
