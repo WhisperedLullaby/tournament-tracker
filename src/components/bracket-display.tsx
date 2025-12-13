@@ -172,7 +172,7 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
           {/* Winner's Bracket */}
           <div>
             <h3 className="mb-4 text-center text-lg font-semibold text-yellow-600 dark:text-yellow-500">
-              Winner's Bracket
+              Winner&apos;s Bracket
             </h3>
             <div className="grid grid-cols-3 gap-6">
               {/* Round 1 */}
@@ -187,7 +187,7 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
               {/* Winner's Final */}
               <div className="space-y-4">
                 <div className="text-muted-foreground mb-2 text-center text-xs font-semibold">
-                  WINNER'S FINAL
+                  WINNER&apos;S FINAL
                 </div>
                 <div className="h-12" />
                 <MatchCard match={game3} label="Game 3: Winner's Bracket" />
@@ -211,7 +211,7 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
           {/* Loser's Bracket */}
           <div>
             <h3 className="mb-4 text-center text-lg font-semibold text-blue-600 dark:text-blue-500">
-              Loser's Bracket
+              Loser&apos;s Bracket
             </h3>
             <div className="grid grid-cols-3 gap-6">
               {/* Loser's Round 1 */}
@@ -226,7 +226,7 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
               {/* Loser's Final */}
               <div className="space-y-4">
                 <div className="text-muted-foreground mb-2 text-center text-xs font-semibold">
-                  LOSER'S FINAL
+                  LOSER&apos;S FINAL
                 </div>
                 <div className="h-12" />
                 <MatchCard match={game5} label="Game 5: Loser's Final" />
