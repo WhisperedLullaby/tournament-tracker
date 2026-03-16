@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/auth/client";
 import { useState } from "react";
 
 interface QuickActionsSubFooterProps {
@@ -20,6 +20,7 @@ export function QuickActionsSubFooter({
   const handleSignIn = async () => {
     setSigningIn(true);
     try {
+      const supabase = createClient();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -40,6 +41,7 @@ export function QuickActionsSubFooter({
 
   const handleSignOut = async () => {
     try {
+      const supabase = createClient();
       await supabase.auth.signOut();
       window.location.reload();
     } catch (error) {
