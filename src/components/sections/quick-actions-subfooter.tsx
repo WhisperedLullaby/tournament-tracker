@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { createClient } from "@/lib/auth/client";
-import { useState } from "react";
+import { useAuth } from "@/contexts/auth-context";
 
 interface QuickActionsSubFooterProps {
   tournamentSlug: string;
@@ -15,39 +14,14 @@ export function QuickActionsSubFooter({
   tournamentStatus,
   userRole,
 }: QuickActionsSubFooterProps) {
-  const [signingIn, setSigningIn] = useState(false);
+  const { signIn, signOut } = useAuth();
 
-  const handleSignIn = async () => {
-    setSigningIn(true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(window.location.pathname)}`,
-        },
-      });
-      if (error) {
-        console.error("Sign in error:", error);
-        alert("Failed to sign in. Please try again.");
-        setSigningIn(false);
-      }
-    } catch (error) {
-      console.error("Sign in error:", error);
-      alert("Failed to sign in. Please try again.");
-      setSigningIn(false);
-    }
+  const handleSignIn = () => {
+    signIn(window.location.pathname);
   };
 
-  const handleSignOut = async () => {
-    try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
-      window.location.reload();
-    } catch (error) {
-      console.error("Sign out error:", error);
-      alert("Failed to sign out. Please try again.");
-    }
+  const handleSignOut = () => {
+    signOut();
   };
   return (
     <section className="bg-muted/20 py-12 md:py-16">
@@ -119,13 +93,10 @@ export function QuickActionsSubFooter({
           {!userRole && (
             <button
               onClick={handleSignIn}
-              disabled={signingIn}
-              className="p-6 bg-yellow-50 border-2 border-yellow-500 rounded-lg shadow-sm hover:shadow-md transition-shadow text-center disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-6 bg-yellow-50 border-2 border-yellow-500 rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
             >
               <div className="text-3xl mb-2">🔑</div>
-              <h3 className="font-semibold text-yellow-900">
-                {signingIn ? "Signing In..." : "Sign In"}
-              </h3>
+              <h3 className="font-semibold text-yellow-900">Sign In</h3>
               <p className="text-sm text-yellow-700 mt-1">
                 Sign in with Google
               </p>

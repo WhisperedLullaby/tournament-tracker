@@ -5,14 +5,10 @@ import type { NextRequest } from "next/server";
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const redirect = requestUrl.searchParams.get("redirect");
   const origin = requestUrl.origin;
 
-  const redirectPath = redirect || "/";
-  const redirectUrl = new URL(redirectPath, origin);
-
   if (code) {
-    const response = NextResponse.redirect(redirectUrl);
+    const response = NextResponse.redirect(new URL("/auth/complete", origin));
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,9 +34,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL("/", origin));
     }
 
-    redirectUrl.searchParams.set("auth", "success");
     return response;
   }
 
-  return NextResponse.redirect(redirectUrl);
+  return NextResponse.redirect(new URL("/tournaments", origin));
 }
