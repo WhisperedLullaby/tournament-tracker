@@ -1,22 +1,209 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with code in this repository.
+
+**Keep this file updated.** Any time a significant architectural decision is made, a major feature is added or removed, a known issue is resolved, or the project direction changes — update this file. It is the primary context source for future sessions.
+
+---
+
+## MCP Servers
+
+| Server | Transport | Scope | Purpose |
+|---|---|---|---|
+| `supabase` | HTTP — `https://mcp.supabase.com/mcp` | user (global) | Query DB, inspect tables, check RLS policies, debug auth |
+| `github` | stdio — `@modelcontextprotocol/server-github` | user (global) | PRs, issues, repo management |
+
+> **Supabase auth:** Personal access token via `Authorization: Bearer` header. Token in Supabase Dashboard → Account → Access Tokens.
+> **GitHub auth:** `GITHUB_PERSONAL_ACCESS_TOKEN` set as a Windows user environment variable (not in `.env.local`).
+
+---
 
 ## Project Overview
 
-Tournament Tracker - A system for managing and tracking tournaments. There will be 5 main pages. The landing page with tournament information with a sign in/sign up dialogue. A tournament registration page for team captains. A scorekeeping page that will function like a digital volleyball score keeper that will commincate with the tournament tracking page. A tournament tracking page that will list standings of the tournament. The table will be sortable. And a game tracker that will list the teams that are playing on the court and who is up next.
+**Tournament Tracker** — A fullstack web platform for managing volleyball tournaments. Organizers can create and manage tournaments; players can register, view live scores, standings, and bracket results.
 
-- **Language:** Fullstack javascript architexture utilizing Next.js 15.3.
+- **Domain:** hewwopwincess.com
+- **Deployed on:** Vercel (auto-deploys on push to `main`)
+- **Database:** Supabase (PostgreSQL)
 
-## General Instructions
+---
 
-- The `docs/` directory contains detailed documentation of all development tasks and decisions
-- Each major feature or change is documentated with step-by-step implemenation details
-- Use these documents as reference for understanding system evolution and architectural decisions
-- Document complex functions and business logic with comments
-- Maintain README files for any custom scripts or tools
-- Keep this CLAUDE.md file updated as the project evolves
+## Tech Stack
 
-## Current Status
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 15.3 (App Router) |
+| Language | TypeScript 5 (strict mode) |
+| UI | TailwindCSS v4 + shadcn/ui (Radix UI) |
+| Animations | framer-motion |
+| ORM | Drizzle ORM |
+| Database | Supabase PostgreSQL |
+| Auth | Supabase Auth — Google OAuth 2.0 |
+| Email | Resend |
+| CAPTCHA | Cloudflare Turnstile |
+| Linting | ESLint 9 + Prettier 3 |
+| Analytics | @vercel/analytics |
 
-- Starting initial setup
+---
+
+## Architecture
+
+### Routing
+All primary pages live under `/tournaments/[slug]/`. Legacy top-level routes (`/standings`, `/schedule`, etc.) still exist but are not the active implementation.
+
+```
+src/app/
+├── page.tsx                          # Redirects to /tournaments
+├── tournaments/
+│   ├── page.tsx                      # Tournament browser (upcoming/active/completed)
+│   ├── create/page.tsx               # Create tournament (organizer whitelist only)
+│   └── [slug]/
+│       ├── layout.tsx                # Fetches tournament + user, provides context
+│       ├── page.tsx                  # Tournament landing page
+│       ├── register/page.tsx         # Team registration
+│       ├── schedule/page.tsx         # Pool play schedule
+│       ├── standings/page.tsx        # Pool + bracket standings
+│       ├── scorekeeper/page.tsx      # Live scorekeeper (organizer only)
+│       ├── bracket/page.tsx          # Bracket visualization
+│       └── settings/page.tsx         # Tournament settings (organizer only)
+├── api/                              # 17 API routes (games, bracket, registration, etc.)
+└── auth/callback/route.ts            # Google OAuth callback
+```
+
+### Data Layer
+- **ORM:** Drizzle ORM with schema at `src/lib/db/schema.ts`
+- **Queries:** `src/lib/db/queries.ts`
+- **8 tables:** tournaments, pods, pool_matches, pool_standings, bracket_teams, bracket_matches, tournament_roles, organizer_whitelist
+- **Migrations:** 5 phases completed; run via `db:push` or the `/api/run-migration-5` utility endpoint
+
+### Auth
+- **Client:** `src/lib/auth/client.ts` (browser), `src/lib/auth/server.ts` (server)
+- **Middleware:** `src/middleware.ts` — refreshes session on every request
+- **Callback:** `src/app/auth/callback/route.ts` — exchanges OAuth code for session
+
+### Tournament Context
+`src/contexts/tournament-context.tsx` — provides `tournament`, `userRole`, `isOrganizer`, `isParticipant` to all `[slug]` pages client-side.
+
+---
+
+## Database Schema (Key Tables)
+
+| Table | Purpose |
+|---|---|
+| `tournaments` | Core tournament entity. Has slug, status, scoring rules (JSON), format config |
+| `pods` | Registered teams (2-3 players or captain + team) |
+| `pool_matches` | Pool play games with scores, status, court assignments |
+| `pool_standings` | Per-pod W/L/point differential stats |
+| `bracket_teams` | 3 composite teams formed after pool play |
+| `bracket_matches` | Bracket games (winners/losers/championship) |
+| `tournament_roles` | User roles per tournament: organizer or participant |
+| `organizer_whitelist` | Controls who can create tournaments |
+
+**Tournament Types:** `pod_2`, `pod_3`, `set_teams`
+**Bracket Styles:** `single_elimination`, `double_elimination`
+**Skill Levels:** C, B, A, Open
+
+---
+
+## Access Control Matrix
+
+| Page | Public | Participant | Organizer |
+|---|---|---|---|
+| Browse / Tournament Detail | ✅ | ✅ | ✅ |
+| Standings / Schedule / Bracket | ✅ | ✅ | ✅ |
+| Register | ✅ (if auth) | ✅ | ✅ |
+| Scorekeeper | ❌ | ❌ | ✅ |
+| Settings | ❌ | ❌ | ✅ |
+| Create Tournament | ❌ | ❌ | ✅ (whitelist) |
+
+---
+
+## Known Open Issues
+
+### 🔴 Google OAuth session not persisting (HIGH — blocks all auth-gated features)
+After completing the OAuth flow, the session isn't recognized. UI still shows "Sign In", role detection fails.
+- **Workaround:** Scorekeeper is currently publicly accessible (no auth check)
+- **What's been tried:** Fixed callback redirect param, added reload after OAuth, updated cookie-setting via `createServerClient`, verified middleware and layout `getUser()` call
+- **Next steps to investigate:** Check Supabase redirect URL config, inspect cookies in DevTools after callback, add logging to `exchangeCodeForSession`, check `onAuthStateChange` on client
+- **Files:** `src/app/auth/callback/route.ts`, `src/middleware.ts`, `src/app/tournaments/[slug]/layout.tsx`, `src/contexts/tournament-context.tsx`
+
+### 🟡 Hardcoded tournament ID in `/api/registration-status`
+Needs to accept a `tournamentId` parameter instead of assuming ID = 1.
+
+### 🟡 Payment step in registration not wired
+The multi-step registration form has a payment step but it's not connected to any payment processor.
+
+---
+
+## Development Workflow
+
+### Commands
+```bash
+npm run dev          # Start dev server
+npm run build        # Production build
+npm run lint         # Run ESLint
+npm run lint:fix     # Auto-fix lint issues
+npm run format       # Prettier format all files
+npm run db:generate  # Generate Drizzle migration
+npm run db:push      # Push schema to database
+npm run db:studio    # Open Drizzle Studio (DB GUI)
+```
+
+### Environment Variables (see `.env.local.example`)
+```
+DATABASE_URL                      # Supabase connection pooler string
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+NEXT_PUBLIC_TURNSTILE_SITE_KEY    # Cloudflare CAPTCHA
+TURNSTILE_SECRET_KEY
+RESEND_API_KEY                    # Email service
+```
+
+### Webpack Config Note
+`next.config.ts` explicitly excludes `drizzle-orm` and `postgres` from the client bundle via `serverExternalPackages`. Do not import these in client components.
+
+---
+
+## Code Standards
+
+- **Components:** Prefer smaller, focused components. Break pages into sections when it makes sense.
+- **Linting:** ESLint enforces `no-unused-vars`, `no-explicit-any`, `no-unescaped-entities`. `no-console` is a warning (except `warn`/`error`).
+- **Styling:** shadcn/ui components first. TailwindCSS v4 utility classes. `clsx` + `tailwind-merge` for conditional class logic.
+- **DB queries:** Always scope queries by `tournamentId`. Never query across tournaments without intent.
+- **No hardcoded tournament IDs** in API routes — pass as parameter.
+
+---
+
+## Docs Directory
+
+`docs/` contains step-by-step implementation docs for every major feature built. Consult these before reworking a system to understand prior decisions:
+
+| Doc | Topic |
+|---|---|
+| `011_google_oauth2.md` | Auth implementation |
+| `012_multi_tournament_platform.md` | Multi-tournament migration (9 phases) |
+| `014_multiple_tournament_types.md` | Tournament types, scoring rules, bracket config |
+| `future_testing_strategy.md` | Testing approach (Playwright, Vitest, RTL) |
+
+---
+
+## Deployment
+
+- **Platform:** Vercel — auto-deploys on push to `main`
+- **Domain:** hewwopwincess.com
+- **Env vars:** Set in Vercel dashboard (not committed to repo)
+- **Rollback:** Via Vercel dashboard → Deployments → Promote to Production
+
+---
+
+## Future Features (Backlog)
+
+- User profiles with tournament history
+- Email notifications / announcements pipeline (Resend partially wired)
+- Payment integration for registration
+- Automated schedule generation from CSV upload
+- Admin UI for organizer whitelist management
+- SPR rating system (like Scoreholio)
+- "Power up" tournament mode (experimental idea)
+- Tournament templates (duplicate structure)
+- Playwright / Vitest test suite
