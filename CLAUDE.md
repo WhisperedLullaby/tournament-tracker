@@ -79,7 +79,11 @@ src/app/
 ### Auth
 - **Client:** `src/lib/auth/client.ts` (browser), `src/lib/auth/server.ts` (server)
 - **Middleware:** `src/middleware.ts` — refreshes session on every request
-- **Callback:** `src/app/auth/callback/route.ts` — exchanges OAuth code for session
+- **Callback:** `src/app/auth/callback/route.ts` — exchanges OAuth code, redirects to `/auth/complete`
+- **Complete:** `src/app/auth/complete/page.tsx` — client page that reads `sessionStorage` and redirects to intended destination
+- **Sign-in page:** `src/app/auth/signin/page.tsx` — for protected flows (registration, pickup games, etc.)
+- **Auth context:** `src/contexts/auth-context.tsx` — `AuthProvider` wraps root layout; exposes `user`, `signIn(redirectPath?)`, `signOut()` via `useAuth()` hook
+- **Sign-in flow:** `signIn()` stores intended path in `sessionStorage`, sets `redirectTo` to just `/auth/callback` (no query params — avoids Supabase URL allowlist issues)
 
 ### Tournament Context
 `src/contexts/tournament-context.tsx` — provides `tournament`, `userRole`, `isOrganizer`, `isParticipant` to all `[slug]` pages client-side.
@@ -120,12 +124,8 @@ src/app/
 
 ## Known Open Issues
 
-### 🔴 Google OAuth session not persisting (HIGH — blocks all auth-gated features)
-After completing the OAuth flow, the session isn't recognized. UI still shows "Sign In", role detection fails.
-- **Workaround:** Scorekeeper is currently publicly accessible (no auth check)
-- **What's been tried:** Fixed callback redirect param, added reload after OAuth, updated cookie-setting via `createServerClient`, verified middleware and layout `getUser()` call
-- **Next steps to investigate:** Check Supabase redirect URL config, inspect cookies in DevTools after callback, add logging to `exchangeCodeForSession`, check `onAuthStateChange` on client
-- **Files:** `src/app/auth/callback/route.ts`, `src/middleware.ts`, `src/app/tournaments/[slug]/layout.tsx`, `src/contexts/tournament-context.tsx`
+### ✅ Google OAuth — RESOLVED
+Root causes fixed: (1) `quick-actions-subfooter` was using the legacy `@/lib/supabase` client (implicit flow) instead of `@supabase/ssr` (PKCE); (2) callback route was setting cookies on `cookieStore` but returning a separate `NextResponse.redirect()` so cookies were dropped; (3) `redirectTo` included query params that didn't match Supabase's URL allowlist, causing fallback to Site URL. Fixed by building a centralized `AuthProvider` — `signIn()` stores destination in `sessionStorage`, `redirectTo` is just `/auth/callback` (exact allowlist match), and `/auth/complete` handles the post-auth redirect client-side.
 
 ### 🟡 Hardcoded tournament ID in `/api/registration-status`
 Needs to accept a `tournamentId` parameter instead of assuming ID = 1.
