@@ -62,7 +62,6 @@ export function Navigation() {
   const baseNavItems = [
     { label: "Home", href: "/" },
     { label: "Tournaments", href: "/tournaments" },
-    { label: "Dashboard", href: "/dashboard" },
   ];
 
   // Tournament-specific navigation items
