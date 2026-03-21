@@ -1,6 +1,6 @@
 import { BracketPageClient } from "@/components/bracket-page-client";
 import {
-  getAllPods,
+  getPodNameMap,
   getTournamentBySlug,
   getBracketMatches,
   getBracketTeams,
@@ -35,13 +35,7 @@ export default async function TournamentBracketPage({
     );
   }
 
-  const podData = await getAllPods(tournament.id);
-  const pods = new Map(
-    podData.map((pod) => [
-      pod.podId,
-      pod.teamName || pod.playerNames,
-    ])
-  );
+  const pods = await getPodNameMap(tournament.id);
 
   const matches = await getBracketMatches(tournament.id);
   const teams = await getBracketTeams(tournament.id);

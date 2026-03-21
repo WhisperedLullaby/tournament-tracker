@@ -98,7 +98,7 @@ src/app/
 | `pods` | Registered teams (2-3 players or captain + team) |
 | `pool_matches` | Pool play games with scores, status, court assignments |
 | `pool_standings` | Per-pod W/L/point differential stats |
-| `bracket_teams` | 3 composite teams formed after pool play |
+| `bracket_teams` | Composite teams formed after pool play (2 teams for pod_3, 4 teams for pod_2, etc.) |
 | `bracket_matches` | Bracket games (winners/losers/championship) |
 | `tournament_roles` | User roles per tournament: organizer or participant |
 | `organizer_whitelist` | Controls who can create tournaments |
@@ -126,6 +126,32 @@ src/app/
 
 ### ✅ Google OAuth — RESOLVED
 Root causes fixed: (1) `quick-actions-subfooter` was using the legacy `@/lib/supabase` client (implicit flow) instead of `@supabase/ssr` (PKCE); (2) callback route was setting cookies on `cookieStore` but returning a separate `NextResponse.redirect()` so cookies were dropped; (3) `redirectTo` included query params that didn't match Supabase's URL allowlist, causing fallback to Site URL. Fixed by building a centralized `AuthProvider` — `signIn()` stores destination in `sessionStorage`, `redirectTo` is just `/auth/callback` (exact allowlist match), and `/auth/complete` handles the post-auth redirect client-side.
+
+### ✅ Schedule page pod names — RESOLVED
+Pod names on the schedule were displaying raw DB IDs (e.g. "64") instead of player/team names. Fixed by building a `podNumberMap` (sorted DB ID → relative index 1–N) used as a fallback display and for filter button labels in `schedule-table.tsx`, `current-game.tsx`, and `next-up.tsx`.
+
+### ✅ Schedule real-time updates — RESOLVED
+Schedule page only polled during bracket phase. Fixed to always poll every 5s regardless of phase. Also ran `ALTER TABLE ... REPLICA IDENTITY FULL` on `pool_matches`, `bracket_matches`, `bracket_teams` and added the latter two to the `supabase_realtime` publication — required for filtered Supabase Realtime subscriptions to deliver UPDATE events.
+
+### ✅ Bracket pod names showing raw DB IDs — RESOLVED
+`bracket/page.tsx` was using `getAllPods()` which translates DB IDs to relative pod numbers, so `pods.get(team.pod1Id)` always missed. Fixed with `getPodNameMap()` — a new query that returns `Map<rawDbId, displayName>` without ID translation.
+
+### ✅ Dynamic bracket system — RESOLVED
+Bracket logic was hardcoded for 4 teams. Refactored `seedBracketMatches` and `advanceBracketTeams` in `queries.ts` to dispatch based on team count:
+- **4-team DE** (pod_2 / 12 pods): 7 games — `seed4TeamDE` / `advance4TeamDE`
+- **6-team DE** (pod_3 / 12 pods): 11 games — `seed6TeamDE` / `advance6TeamDE`
+- Team count derived from `getBracketConfig`: `Math.floor(maxPods / podsPerTeam)`
+- Teams seeded via serpentine draft (snake order) from pool standings
+- `bracket_teams.pod3Id` made nullable in schema + DB migration for 2-pod teams
+
+### ✅ Bracket game order (single court) — RESOLVED
+Winners bracket games played all before losers games. Reordered to interleave: W-R1 games → L-R1 (losers can play immediately) → W-Final → L-Final → Championship. Game numbers 3 and 4 swapped for the existing tournament (direct DB update) and corrected in seeding/advancement code.
+
+### ✅ Bracket display — RESOLVED
+`bracket-display.tsx` now branches on `teamCount`:
+- **4-team**: 3-column layout per bracket section, correct game labels (G3=Losers R1, G4=Winners Final)
+- **6-team**: 4-column layout with W-R1 / W-SF / W-Final / Championship and matching losers columns
+- `pod3Id` null guard throughout `bracket-display`, `bracket-standings`, `bracket-team-cards`
 
 ### 🟡 Hardcoded tournament ID in `/api/registration-status`
 Needs to accept a `tournamentId` parameter instead of assuming ID = 1.

@@ -176,9 +176,6 @@ export function SchedulePageClient({
 
   // Subscribe to real-time updates with fallback polling
   useEffect(() => {
-    console.log('[Schedule] Setting up realtime subscriptions for tournament:', tournamentId);
-
-    // Use a more specific channel name with timestamp to ensure uniqueness
     const channelName = `schedule-updates-${Date.now()}`;
 
     const channel = supabase
@@ -191,23 +188,17 @@ export function SchedulePageClient({
           table: "pool_matches",
           filter: `tournament_id=eq.${tournamentId}`,
         },
-        (payload) => {
-          console.log('[Schedule] Pool match changed:', payload);
-          refreshMatches();
-        }
+        () => refreshMatches()
       )
       .on(
         "postgres_changes",
         {
-          event: "*", // Listen to all events
+          event: "*",
           schema: "public",
           table: "bracket_matches",
           filter: `tournament_id=eq.${tournamentId}`,
         },
-        (payload) => {
-          console.log('[Schedule] Bracket match changed:', payload);
-          refreshMatches();
-        }
+        () => refreshMatches()
       )
       .on(
         "postgres_changes",
@@ -217,29 +208,17 @@ export function SchedulePageClient({
           table: "bracket_teams",
           filter: `tournament_id=eq.${tournamentId}`,
         },
-        (payload) => {
-          console.log('[Schedule] Bracket team changed:', payload);
-          refreshMatches();
-        }
+        () => refreshMatches()
       )
-      .subscribe((status) => {
-        console.log('[Schedule] Subscription status:', status);
-      });
+      .subscribe();
 
-    // Fallback: Poll every 3 seconds as backup - ONLY during bracket phase
-    // Pool play real-time subscriptions work reliably, bracket needs polling fallback
-    let pollInterval: NodeJS.Timeout | undefined;
-    if (isPoolPlayComplete) {
-      pollInterval = setInterval(() => {
-        console.log('[Schedule] Polling for updates (bracket phase fallback)');
-        refreshMatches();
-      }, 3000);
-    }
+    // Fallback: Poll every 5 seconds as backup for both pool and bracket phases
+    const pollInterval = setInterval(() => {
+      refreshMatches();
+    }, 5000);
 
-    // Cleanup subscription on unmount
     return () => {
-      console.log('[Schedule] Cleaning up subscriptions');
-      if (pollInterval) clearInterval(pollInterval);
+      clearInterval(pollInterval);
       supabase.removeChannel(channel);
     };
   }, [refreshMatches, tournamentId, isPoolPlayComplete]);

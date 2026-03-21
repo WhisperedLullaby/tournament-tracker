@@ -25,6 +25,10 @@ export function ScheduleTable({ matches, podNames }: ScheduleTableProps) {
   // Get unique pod IDs from podNames map and sort them
   const allPodIds = Array.from(podNames.keys()).sort((a, b) => a - b);
 
+  // Map DB IDs to relative pod numbers (1, 2, 3...) for fallback display
+  const podNumberMap = new Map<number, number>();
+  allPodIds.forEach((id, index) => podNumberMap.set(id, index + 1));
+
   // Filter by pod - only show games where pod is playing (not sitting)
   const filteredMatches = filterPod
     ? matches.filter(
@@ -42,7 +46,7 @@ export function ScheduleTable({ matches, podNames }: ScheduleTableProps) {
       return "TBD";
     }
     return pods
-      .map((podId) => podNames.get(podId) || `Pod ${podId}`)
+      .map((podId) => podNames.get(podId) || `Pod ${podNumberMap.get(podId) ?? podId}`)
       .join(", ");
   };
 
@@ -99,7 +103,7 @@ export function ScheduleTable({ matches, podNames }: ScheduleTableProps) {
               size="sm"
               onClick={() => setFilterPod(pod)}
             >
-              Pod {pod}
+              {podNames.get(pod) || `Pod ${podNumberMap.get(pod) ?? pod}`}
             </Button>
           ))}
         </div>

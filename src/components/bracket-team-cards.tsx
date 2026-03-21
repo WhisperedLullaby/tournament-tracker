@@ -97,12 +97,14 @@ export function BracketTeamCards({ teams, pods }: BracketTeamCardsProps) {
                       {getPodName(team.pod2Id)}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 p-2 rounded bg-muted/50">
-                    <div className="bg-primary/20 h-2 w-2 rounded-full" />
-                    <p className="text-sm font-medium">
-                      {getPodName(team.pod3Id)}
-                    </p>
-                  </div>
+                  {team.pod3Id != null && (
+                    <div className="flex items-center gap-2 p-2 rounded bg-muted/50">
+                      <div className="bg-primary/20 h-2 w-2 rounded-full" />
+                      <p className="text-sm font-medium">
+                        {getPodName(team.pod3Id)}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

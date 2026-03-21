@@ -38,13 +38,17 @@ export function CurrentGame({
     setMatch(initialMatch);
   }, [initialMatch, match]);
 
+  // Map DB IDs to relative pod numbers for fallback display
+  const podNumberMap = new Map<number, number>();
+  Array.from(podNames.keys()).sort((a, b) => a - b).forEach((id, index) => podNumberMap.set(id, index + 1));
+
   // Format team names from pod IDs
   const formatTeamNames = (pods: number[] | null | undefined): string => {
     if (!pods || !Array.isArray(pods) || pods.length === 0) {
       return "TBD";
     }
     return pods
-      .map((podId) => podNames.get(podId) || `Pod ${podId}`)
+      .map((podId) => podNames.get(podId) || `Pod ${podNumberMap.get(podId) ?? podId}`)
       .join(" • ");
   };
 

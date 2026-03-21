@@ -48,7 +48,7 @@ export function BracketStandings({
     return [
       pods.get(team.pod1Id) || `Pod ${team.pod1Id}`,
       pods.get(team.pod2Id) || `Pod ${team.pod2Id}`,
-      pods.get(team.pod3Id) || `Pod ${team.pod3Id}`,
+      ...(team.pod3Id != null ? [pods.get(team.pod3Id) || `Pod ${team.pod3Id}`] : []),
     ];
   };
 

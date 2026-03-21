@@ -41,6 +41,40 @@ export async function getPodCount(tournamentId: number): Promise<number> {
 }
 
 /**
+ * Get a map of raw pod DB ID → display name for a tournament.
+ * Suitable for components that need to look up pods by their real DB ID
+ * (e.g. bracket_teams.pod1Id / pod2Id / pod3Id).
+ */
+export async function getPodNameMap(tournamentId: number): Promise<Map<number, string>> {
+  try {
+    const podList = await db
+      .select({
+        podId: pods.id,
+        teamName: pods.teamName,
+        playerNames: pods.name,
+        player1: pods.player1,
+        player2: pods.player2,
+      })
+      .from(pods)
+      .where(eq(pods.tournamentId, tournamentId))
+      .orderBy(asc(pods.id));
+
+    return new Map(
+      podList.map((pod, index) => {
+        const display =
+          pod.teamName ||
+          _adaptCombinedNamesToFirstNames(pod.playerNames) ||
+          `Pod ${index + 1}`;
+        return [pod.podId, display];
+      })
+    );
+  } catch (error) {
+    console.error("Error fetching pod name map:", error);
+    return new Map();
+  }
+}
+
+/**
  * Get all pods with translated pod numbers for a tournament
  * Returns all pods ordered by ID, with podId field containing the translated pod number (1-9)
  */
@@ -376,88 +410,95 @@ export async function isPoolPlayComplete(tournamentId: number): Promise<boolean>
   }
 }
 
+// ====================================================================
+// BRACKET HELPERS
+// ====================================================================
+
 /**
- * Create bracket teams from final pool standings for a tournament
- * Creates 4 balanced teams using custom snake draft pattern:
- * - Round 1: Top seeds (1, 2, 3, 4)
- * - Round 2: Bottom seeds (12, 11, 9, 10) - pairs top with bottom
- * - Round 3: Middle seeds (7, 8, 6, 5)
+ * Derive bracket team count and pods-per-team from tournament config.
+ *   pod_2: 3 pods × 2 players = 6  →  teamCount = maxPods / 3
+ *   pod_3: 2 pods × 3 players = 6  →  teamCount = maxPods / 2
+ */
+function getBracketConfig(tournament: { tournamentType: string; maxPods: number }): {
+  teamCount: number;
+  podsPerTeam: number;
+} {
+  const podsPerTeam = tournament.tournamentType === "pod_3" ? 2 : 3;
+  return { teamCount: Math.floor(tournament.maxPods / podsPerTeam), podsPerTeam };
+}
+
+// ====================================================================
+// BRACKET TEAM CREATION
+// ====================================================================
+
+/**
+ * Create bracket teams from final pool play standings.
  *
- * Result:
- * - Team A: Seeds 1, 12, 7 (sum = 20)
- * - Team B: Seeds 2, 11, 8 (sum = 21)
- * - Team C: Seeds 3, 9, 6 (sum = 18)
- * - Team D: Seeds 4, 10, 5 (sum = 19)
+ * Team count and pod distribution are derived from the tournament config:
+ *   pod_2 type (2 players/pod): 3 pods per team → teamCount = maxPods / 3
+ *   pod_3 type (3 players/pod): 2 pods per team → teamCount = maxPods / 2
  *
- * Returns the created teams or existing teams if already created
+ * Pods are distributed using a serpentine (snake) draft so each team gets
+ * one high-seed and one low-seed pod per pair of rounds:
+ *   Even rounds: assign ascending  (team 0 → N-1)
+ *   Odd rounds:  assign descending (team N-1 → 0)
+ *
+ * Examples:
+ *   4 teams, 3 pods (12-pod pod_2): A=1,8,9  B=2,7,10  C=3,6,11  D=4,5,12
+ *   6 teams, 2 pods (12-pod pod_3): A=1,12   B=2,11    C=3,10    D=4,9    E=5,8   F=6,7
+ *   6 teams, 3 pods (18-pod pod_2): A=1,12,13 B=2,11,14 C=3,10,15 D=4,9,16 E=5,8,17 F=6,7,18
  */
 export async function createBracketTeamsFromStandings(tournamentId: number) {
   try {
-    // Check if teams already exist for this tournament
     const existingTeams = await db
       .select()
       .from(bracketTeams)
       .where(eq(bracketTeams.tournamentId, tournamentId));
-    if (existingTeams.length > 0) {
-      return existingTeams;
-    }
+    if (existingTeams.length > 0) return existingTeams;
 
-    // Get final standings
+    const tournament = await db.query.tournaments.findFirst({
+      where: eq(tournaments.id, tournamentId),
+    });
+    if (!tournament) throw new Error("Tournament not found");
+
+    const { teamCount, podsPerTeam } = getBracketConfig(tournament);
     const standings = await getPoolStandings(tournamentId);
 
-    if (standings.length < 12) {
-      throw new Error("Not enough pods to create bracket teams (need 12 pods)");
+    const requiredPods = teamCount * podsPerTeam;
+    if (standings.length < requiredPods) {
+      throw new Error(
+        `Need ${requiredPods} pods for ${teamCount} bracket teams (${podsPerTeam} pods each), but only ${standings.length} pods are registered.`
+      );
     }
 
-    // Create Team A: Seeds 1, 12, 7
-    const teamA = await db
-      .insert(bracketTeams)
-      .values({
-        tournamentId,
-        teamName: "Team A",
-        pod1Id: standings[0].podId,  // Seed 1
-        pod2Id: standings[11].podId, // Seed 12
-        pod3Id: standings[6].podId,  // Seed 7
-      })
-      .returning();
+    // Serpentine draft: distribute pods across teams in snake order
+    const teamPodIds: number[][] = Array.from({ length: teamCount }, () => []);
+    for (let round = 0; round < podsPerTeam; round++) {
+      for (let pick = 0; pick < teamCount; pick++) {
+        const ascending = round % 2 === 0;
+        const teamIdx = ascending ? pick : teamCount - 1 - pick;
+        teamPodIds[teamIdx].push(standings[round * teamCount + pick].podId);
+      }
+    }
 
-    // Create Team B: Seeds 2, 11, 8
-    const teamB = await db
-      .insert(bracketTeams)
-      .values({
-        tournamentId,
-        teamName: "Team B",
-        pod1Id: standings[1].podId,  // Seed 2
-        pod2Id: standings[10].podId, // Seed 11
-        pod3Id: standings[7].podId,  // Seed 8
-      })
-      .returning();
+    const TEAM_LETTERS = "ABCDEFGHIJKLMNOP";
+    const createdTeams = [];
+    for (let i = 0; i < teamCount; i++) {
+      const pods = teamPodIds[i];
+      const [team] = await db
+        .insert(bracketTeams)
+        .values({
+          tournamentId,
+          teamName: `Team ${TEAM_LETTERS[i]}`,
+          pod1Id: pods[0],
+          pod2Id: pods[1],
+          pod3Id: pods[2] ?? null,
+        })
+        .returning();
+      createdTeams.push(team);
+    }
 
-    // Create Team C: Seeds 3, 9, 6
-    const teamC = await db
-      .insert(bracketTeams)
-      .values({
-        tournamentId,
-        teamName: "Team C",
-        pod1Id: standings[2].podId,  // Seed 3
-        pod2Id: standings[8].podId,  // Seed 9
-        pod3Id: standings[5].podId,  // Seed 6
-      })
-      .returning();
-
-    // Create Team D: Seeds 4, 10, 5
-    const teamD = await db
-      .insert(bracketTeams)
-      .values({
-        tournamentId,
-        teamName: "Team D",
-        pod1Id: standings[3].podId,  // Seed 4
-        pod2Id: standings[9].podId,  // Seed 10
-        pod3Id: standings[4].podId,  // Seed 5
-      })
-      .returning();
-
-    return [teamA[0], teamB[0], teamC[0], teamD[0]];
+    return createdTeams;
   } catch (error) {
     console.error("Error creating bracket teams:", error);
     throw error;
@@ -465,18 +506,11 @@ export async function createBracketTeamsFromStandings(tournamentId: number) {
 }
 
 /**
- * Seed bracket matches based on double elimination format for a tournament
- * Game 1: Team B vs Team C (Team A gets bye)
- * Game 2: Team A vs Winner G1
- * Game 3: Loser G1 vs Loser G2
- * Game 4: Winner G3 vs Winner G2
- * Game 5: Conditional - only if Winner G2 loses G4
- *
- * Returns the created matches or existing matches if already created
+ * Seed bracket matches — dispatches to the correct seeder based on team count.
+ * Returns the created matches or existing matches if already seeded.
  */
 export async function seedBracketMatches(tournamentId: number) {
   try {
-    // Check if matches already exist for this tournament
     const existingMatches = await db
       .select()
       .from(bracketMatches)
@@ -485,106 +519,150 @@ export async function seedBracketMatches(tournamentId: number) {
       return existingMatches;
     }
 
-    // Get bracket teams for this tournament
     const teams = await db
       .select()
       .from(bracketTeams)
       .where(eq(bracketTeams.tournamentId, tournamentId))
       .orderBy(asc(bracketTeams.teamName));
 
-    if (teams.length < 4) {
-      throw new Error("Not enough bracket teams to create matches (need 4 teams)");
+    if (teams.length === 4) {
+      await seed4TeamDE(tournamentId, teams);
+    } else if (teams.length === 6) {
+      await seed6TeamDE(tournamentId, teams);
+    } else {
+      throw new Error(`Unsupported bracket team count: ${teams.length}`);
     }
 
-    const teamA = teams.find(t => t.teamName === "Team A");
-    const teamB = teams.find(t => t.teamName === "Team B");
-    const teamC = teams.find(t => t.teamName === "Team C");
-    const teamD = teams.find(t => t.teamName === "Team D");
-
-    if (!teamA || !teamB || !teamC || !teamD) {
-      throw new Error("Could not find all bracket teams");
-    }
-
-    // Game 1: Team A (1st seed) vs Team C (3rd seed)
-    await db.insert(bracketMatches).values({
-      tournamentId,
-      gameNumber: 1,
-      bracketType: "winners",
-      teamAId: teamA.id,
-      teamBId: teamC.id,
-      status: "pending",
-    });
-
-    // Game 2: Team B (2nd seed) vs Team D (4th seed)
-    await db.insert(bracketMatches).values({
-      tournamentId,
-      gameNumber: 2,
-      bracketType: "winners",
-      teamAId: teamB.id,
-      teamBId: teamD.id,
-      status: "pending",
-    });
-
-    // Game 3: Game 1 Winner vs Game 2 Winner (Winner's Bracket Final)
-    await db.insert(bracketMatches).values({
-      tournamentId,
-      gameNumber: 3,
-      bracketType: "winners",
-      teamAId: null, // Winner of Game 1
-      teamBId: null, // Winner of Game 2
-      status: "pending",
-    });
-
-    // Game 4: Game 1 Loser vs Game 2 Loser (Loser's Bracket Round 1)
-    await db.insert(bracketMatches).values({
-      tournamentId,
-      gameNumber: 4,
-      bracketType: "losers",
-      teamAId: null, // Loser of Game 1
-      teamBId: null, // Loser of Game 2
-      status: "pending",
-    });
-
-    // Game 5: Game 4 Winner vs Game 3 Loser (Loser's Bracket Final)
-    await db.insert(bracketMatches).values({
-      tournamentId,
-      gameNumber: 5,
-      bracketType: "losers",
-      teamAId: null, // Winner of Game 4
-      teamBId: null, // Loser of Game 3
-      status: "pending",
-    });
-
-    // Game 6: Game 3 Winner vs Game 5 Winner (Championship)
-    await db.insert(bracketMatches).values({
-      tournamentId,
-      gameNumber: 6,
-      bracketType: "championship",
-      teamAId: null, // Winner of Game 3 (undefeated)
-      teamBId: null, // Winner of Game 5 (from loser's bracket)
-      status: "pending",
-    });
-
-    // Game 7: Game 6 Winner vs Game 6 Loser IF FIRST LOSS (Championship rematch - only if needed)
-    await db.insert(bracketMatches).values({
-      tournamentId,
-      gameNumber: 7,
-      bracketType: "championship",
-      teamAId: null, // Winner of Game 6
-      teamBId: null, // Loser of Game 6 (only if they have just 1 loss)
-      status: "pending",
-    });
-
-    const allMatches = await db
+    return await db
       .select()
       .from(bracketMatches)
       .where(eq(bracketMatches.tournamentId, tournamentId))
       .orderBy(asc(bracketMatches.gameNumber));
-
-    return allMatches;
   } catch (error) {
     console.error("Error seeding bracket matches:", error);
     throw error;
+  }
+}
+
+/**
+ * 4-team double elimination seeder (7 games).
+ * Single-court flow: G1, G2, G3 (L-R1), G4 (W-Final), G5 (L-Final), G6 (Champ), G7 (Rematch if needed)
+ */
+async function seed4TeamDE(tournamentId: number, teams: { id: number; teamName: string }[]) {
+  const get = (name: string) => {
+    const t = teams.find(t => t.teamName === name);
+    if (!t) throw new Error(`Bracket team "${name}" not found`);
+    return t.id;
+  };
+
+  const rows = [
+    { gameNumber: 1, bracketType: "winners" as const, teamAId: get("Team A"), teamBId: get("Team C") },
+    { gameNumber: 2, bracketType: "winners" as const, teamAId: get("Team B"), teamBId: get("Team D") },
+    { gameNumber: 3, bracketType: "losers"  as const, teamAId: null, teamBId: null }, // Losers R1: loser G1 vs loser G2
+    { gameNumber: 4, bracketType: "winners" as const, teamAId: null, teamBId: null }, // Winners Final: winner G1 vs winner G2
+    { gameNumber: 5, bracketType: "losers"  as const, teamAId: null, teamBId: null }, // Losers Final: winner G3 vs loser G4
+    { gameNumber: 6, bracketType: "championship" as const, teamAId: null, teamBId: null }, // Championship: winner G4 vs winner G5
+    { gameNumber: 7, bracketType: "championship" as const, teamAId: null, teamBId: null }, // Rematch if needed
+  ];
+
+  for (const row of rows) {
+    await db.insert(bracketMatches).values({ tournamentId, status: "pending", ...row });
+  }
+}
+
+/**
+ * 6-team double elimination seeder (11 games).
+ * Single-court flow:
+ *   G1  Winners R1: A vs F
+ *   G2  Winners R1: B vs E
+ *   G3  Winners R1: C vs D
+ *   G4  Losers R1:  loser G1 vs loser G2
+ *   G5  Losers R1:  loser G3 sits (bye — only 2 losers available for first round)
+ *   G6  Winners SF: winner G1 vs winner G3
+ *   G7  Winners SF: winner G2 vs winner G4... (wait — need to rethink)
+ *
+ * Standard 6-team DE schedule:
+ *   G1  W-R1: seed1(A) vs seed6(F)
+ *   G2  W-R1: seed2(B) vs seed5(E)
+ *   G3  W-R1: seed3(C) vs seed4(D)
+ *   G4  L-R1: loser(G1) vs loser(G2)
+ *   G5  W-QF: winner(G1) vs winner(G3)   [seed1/6 winner vs seed3/4 winner]
+ *   G6  W-QF: winner(G2) vs bye           [seed2/5 winner gets bye — becomes W-SF entry]
+ *   G7  L-R2: loser(G5) vs loser(G3)      [W-QF loser vs W-R1 loser with bye]
+ *   G8  L-R2: winner(G4) vs loser(G6)
+ *   G9  W-SF: winner(G5) vs winner(G6)    [Winners Final]
+ *   G10 L-QF: winner(G7) vs winner(G8)
+ *   G11 L-SF: loser(G9) vs winner(G10)    [Losers Final]
+ *   G12 Championship: winner(G9) vs winner(G11)
+ *   G13 Rematch if needed
+ *
+ * Reordered for single-court logical flow:
+ *   G1  W-R1: A vs F
+ *   G2  W-R1: B vs E
+ *   G3  W-R1: C vs D
+ *   G4  L-R1: loser(G1) vs loser(G2)      — both losers known after G1+G2
+ *   G5  W-QF: winner(G1) vs winner(G3)    — G3 loser goes to L-R2 (G7)
+ *   G6  W-QF: winner(G2) vs winner(G4)...
+ *
+ * Simplified practical schedule (interleaved single court):
+ *   G1  W-R1:   A vs F
+ *   G2  W-R1:   B vs E
+ *   G3  W-R1:   C vs D
+ *   G4  L-R1:   loser(G1) vs loser(G2)
+ *   G5  W-SF:   winner(G1) vs winner(G3)
+ *   G6  W-SF:   winner(G2) vs winner(G4)  [NOTE: winner(G4) = winner of L-R1... this is non-standard]
+ *
+ * Using the clean 6-team DE with 3 byes in losers:
+ *   G1  W-R1:   A vs F            (1st/6th)
+ *   G2  W-R1:   B vs E            (2nd/5th)
+ *   G3  W-R1:   C vs D            (3rd/4th)
+ *   G4  L-R1:   loser(G2) vs loser(G3)
+ *   G5  W-SF:   winner(G2) vs winner(G3)
+ *   G6  L-R1:   loser(G1) vs loser(G5)
+ *   G7  W-SF:   winner(G1) vs winner(G5)  [Winners Final]
+ *   G8  L-SF:   winner(G4) vs winner(G6)
+ *   G9  L-Final: winner(G8) vs loser(G7)
+ *   G10 Championship: winner(G7) vs winner(G9)
+ *   G11 Rematch if needed
+ */
+async function seed6TeamDE(tournamentId: number, teams: { id: number; teamName: string }[]) {
+  const get = (name: string) => {
+    const t = teams.find(t => t.teamName === name);
+    if (!t) throw new Error(`Bracket team "${name}" not found`);
+    return t.id;
+  };
+
+  // 6-team DE: 11 games
+  // Seeds: A=1st, B=2nd, C=3rd, D=4th, E=5th, F=6th
+  // W-R1 matchups: 1v6, 2v5, 3v4
+  // Single-court interleaved flow:
+  //   G1: W-R1 A vs F
+  //   G2: W-R1 B vs E
+  //   G3: W-R1 C vs D
+  //   G4: L-R1 loser(G2) vs loser(G3)     — first two losers available
+  //   G5: W-SF winner(G2) vs winner(G3)
+  //   G6: L-R1 loser(G1) vs loser(G5)     — G1 loser waits, plays L-R1 vs W-SF loser
+  //   G7: W-F  winner(G1) vs winner(G5)   — Winners Final
+  //   G8: L-QF winner(G4) vs winner(G6)
+  //   G9: L-SF loser(G7)  vs winner(G8)   — Losers Final
+  //  G10: Champ winner(G7) vs winner(G9)
+  //  G11: Rematch if needed
+  const rows = [
+    { gameNumber: 1,  bracketType: "winners"      as const, teamAId: get("Team A"), teamBId: get("Team F") },
+    { gameNumber: 2,  bracketType: "winners"      as const, teamAId: get("Team B"), teamBId: get("Team E") },
+    { gameNumber: 3,  bracketType: "winners"      as const, teamAId: get("Team C"), teamBId: get("Team D") },
+    { gameNumber: 4,  bracketType: "losers"       as const, teamAId: null, teamBId: null }, // loser(G2) vs loser(G3)
+    { gameNumber: 5,  bracketType: "winners"      as const, teamAId: null, teamBId: null }, // winner(G2) vs winner(G3)
+    { gameNumber: 6,  bracketType: "losers"       as const, teamAId: null, teamBId: null }, // loser(G1) vs loser(G5)
+    { gameNumber: 7,  bracketType: "winners"      as const, teamAId: null, teamBId: null }, // winner(G1) vs winner(G5) — Winners Final
+    { gameNumber: 8,  bracketType: "losers"       as const, teamAId: null, teamBId: null }, // winner(G4) vs winner(G6)
+    { gameNumber: 9,  bracketType: "losers"       as const, teamAId: null, teamBId: null }, // loser(G7) vs winner(G8) — Losers Final
+    { gameNumber: 10, bracketType: "championship" as const, teamAId: null, teamBId: null }, // winner(G7) vs winner(G9)
+    { gameNumber: 11, bracketType: "championship" as const, teamAId: null, teamBId: null }, // rematch if needed
+  ];
+
+  for (const row of rows) {
+    await db.insert(bracketMatches).values({ tournamentId, status: "pending", ...row });
   }
 }
 
@@ -659,100 +737,154 @@ export async function getNextBracketMatch(tournamentId: number) {
 }
 
 /**
- * Advance teams after a bracket match completes for a tournament
- * Implements the progression logic for double elimination
+ * Advance teams after a bracket match completes.
+ * Dispatches to the per-format helper based on how many bracket teams exist.
  */
 export async function advanceBracketTeams(tournamentId: number, completedGameNumber: number, winnerId: number, loserId: number) {
   try {
-    switch (completedGameNumber) {
-      case 1:
-        // Game 1 complete: Winner to G3, Loser to G4
-        await db
-          .update(bracketMatches)
-          .set({ teamAId: winnerId })
-          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 3`);
+    const teams = await db
+      .select({ id: bracketTeams.id })
+      .from(bracketTeams)
+      .where(eq(bracketTeams.tournamentId, tournamentId));
 
-        await db
-          .update(bracketMatches)
-          .set({ teamAId: loserId })
-          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 4`);
-        break;
-
-      case 2:
-        // Game 2 complete: Winner to G3, Loser to G4
-        await db
-          .update(bracketMatches)
-          .set({ teamBId: winnerId })
-          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 3`);
-
-        await db
-          .update(bracketMatches)
-          .set({ teamBId: loserId })
-          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 4`);
-        break;
-
-      case 3:
-        // Game 3 complete: Winner to G6, Loser to G5
-        await db
-          .update(bracketMatches)
-          .set({ teamAId: winnerId })
-          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 6`);
-
-        await db
-          .update(bracketMatches)
-          .set({ teamBId: loserId })
-          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 5`);
-        break;
-
-      case 4:
-        // Game 4 complete: Winner to G5
-        await db
-          .update(bracketMatches)
-          .set({ teamAId: winnerId })
-          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 5`);
-        break;
-
-      case 5:
-        // Game 5 complete: Winner to G6 (championship)
-        await db
-          .update(bracketMatches)
-          .set({ teamBId: winnerId })
-          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 6`);
-        break;
-
-      case 6:
-        // Game 6 complete: If loser has only 1 loss, they advance to G7 for rematch
-        const game3 = await db
-          .select()
-          .from(bracketMatches)
-          .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 3`)
-          .limit(1);
-
-        if (game3[0]) {
-          const game3WinnerId = game3[0].teamAScore > game3[0].teamBScore ? game3[0].teamAId : game3[0].teamBId;
-
-          // If the loser of G6 is the G3 winner (came from winner's bracket), they get a rematch
-          if (loserId === game3WinnerId) {
-            await db
-              .update(bracketMatches)
-              .set({
-                teamAId: winnerId,
-                teamBId: loserId,
-              })
-              .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 7`);
-          }
-        }
-        break;
-
-      case 7:
-        // Game 7 complete: Tournament over, winner is champion
-        break;
-
-      default:
+    if (teams.length === 4) {
+      await advance4TeamDE(tournamentId, completedGameNumber, winnerId, loserId);
+    } else if (teams.length === 6) {
+      await advance6TeamDE(tournamentId, completedGameNumber, winnerId, loserId);
+    } else {
+      throw new Error(`Unsupported bracket team count for advancement: ${teams.length}`);
     }
   } catch (error) {
     console.error("Error advancing bracket teams:", error);
     throw error;
+  }
+}
+
+// ---- private helpers ----
+
+async function setSlot(tournamentId: number, gameNumber: number, slot: "teamAId" | "teamBId", teamId: number) {
+  await db
+    .update(bracketMatches)
+    .set({ [slot]: teamId })
+    .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = ${gameNumber}`);
+}
+
+/**
+ * 4-team DE advancement.
+ * Game map: G1 W-R1, G2 W-R1, G3 L-R1, G4 W-Final, G5 L-Final, G6 Champ, G7 Rematch
+ */
+async function advance4TeamDE(tournamentId: number, g: number, winnerId: number, loserId: number) {
+  switch (g) {
+    case 1:
+      await setSlot(tournamentId, 4, "teamAId", winnerId); // → W-Final
+      await setSlot(tournamentId, 3, "teamAId", loserId);  // → L-R1
+      break;
+    case 2:
+      await setSlot(tournamentId, 4, "teamBId", winnerId); // → W-Final
+      await setSlot(tournamentId, 3, "teamBId", loserId);  // → L-R1
+      break;
+    case 3: // L-R1
+      await setSlot(tournamentId, 5, "teamAId", winnerId); // → L-Final
+      break;
+    case 4: // W-Final
+      await setSlot(tournamentId, 6, "teamAId", winnerId); // → Champ (undefeated side)
+      await setSlot(tournamentId, 5, "teamBId", loserId);  // → L-Final
+      break;
+    case 5: // L-Final
+      await setSlot(tournamentId, 6, "teamBId", winnerId); // → Champ (losers side)
+      break;
+    case 6: { // Championship
+      // Rematch only if the G4 winner (undefeated) lost here — they still have just 1 loss
+      const [game4] = await db
+        .select()
+        .from(bracketMatches)
+        .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 4`)
+        .limit(1);
+      if (game4) {
+        const g4Winner = game4.teamAScore > game4.teamBScore ? game4.teamAId : game4.teamBId;
+        if (loserId === g4Winner) {
+          await db
+            .update(bracketMatches)
+            .set({ teamAId: winnerId, teamBId: loserId })
+            .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 7`);
+        }
+      }
+      break;
+    }
+    case 7:
+      break; // Tournament over
+  }
+}
+
+/**
+ * 6-team DE advancement.
+ * Game map:
+ *   G1  W-R1:   A vs F
+ *   G2  W-R1:   B vs E
+ *   G3  W-R1:   C vs D
+ *   G4  L-R1:   loser(G2) vs loser(G3)
+ *   G5  W-SF:   winner(G2) vs winner(G3)
+ *   G6  L-R1:   loser(G1) vs loser(G5)
+ *   G7  W-Final: winner(G1) vs winner(G5)
+ *   G8  L-QF:   winner(G4) vs winner(G6)
+ *   G9  L-Final: loser(G7) vs winner(G8)
+ *   G10 Champ:  winner(G7) vs winner(G9)
+ *   G11 Rematch if needed
+ */
+async function advance6TeamDE(tournamentId: number, g: number, winnerId: number, loserId: number) {
+  switch (g) {
+    case 1: // W-R1 A vs F
+      await setSlot(tournamentId, 7, "teamAId", winnerId); // → W-Final teamA
+      await setSlot(tournamentId, 6, "teamAId", loserId);  // → L-R1(G6) teamA (waits for G5 loser)
+      break;
+    case 2: // W-R1 B vs E
+      await setSlot(tournamentId, 5, "teamAId", winnerId); // → W-SF teamA
+      await setSlot(tournamentId, 4, "teamAId", loserId);  // → L-R1(G4) teamA
+      break;
+    case 3: // W-R1 C vs D
+      await setSlot(tournamentId, 5, "teamBId", winnerId); // → W-SF teamB
+      await setSlot(tournamentId, 4, "teamBId", loserId);  // → L-R1(G4) teamB
+      break;
+    case 4: // L-R1
+      await setSlot(tournamentId, 8, "teamAId", winnerId); // → L-QF teamA
+      break;
+    case 5: // W-SF
+      await setSlot(tournamentId, 7, "teamBId", winnerId); // → W-Final teamB
+      await setSlot(tournamentId, 6, "teamBId", loserId);  // → L-R1(G6) teamB
+      break;
+    case 6: // L-R1 (second)
+      await setSlot(tournamentId, 8, "teamBId", winnerId); // → L-QF teamB
+      break;
+    case 7: // W-Final
+      await setSlot(tournamentId, 10, "teamAId", winnerId); // → Champ (undefeated side)
+      await setSlot(tournamentId, 9,  "teamAId", loserId);  // → L-Final
+      break;
+    case 8: // L-QF
+      await setSlot(tournamentId, 9, "teamBId", winnerId); // → L-Final
+      break;
+    case 9: // L-Final
+      await setSlot(tournamentId, 10, "teamBId", winnerId); // → Champ (losers side)
+      break;
+    case 10: { // Championship
+      // Rematch only if G7 winner (undefeated) lost here
+      const [game7] = await db
+        .select()
+        .from(bracketMatches)
+        .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 7`)
+        .limit(1);
+      if (game7) {
+        const g7Winner = game7.teamAScore > game7.teamBScore ? game7.teamAId : game7.teamBId;
+        if (loserId === g7Winner) {
+          await db
+            .update(bracketMatches)
+            .set({ teamAId: winnerId, teamBId: loserId })
+            .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 11`);
+        }
+      }
+      break;
+    }
+    case 11:
+      break; // Tournament over
   }
 }
 

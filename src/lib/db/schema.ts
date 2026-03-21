@@ -171,7 +171,6 @@ export const bracketTeams = pgTable("bracket_teams", {
     .notNull()
     .references(() => pods.id),
   pod3Id: integer("pod3_id")
-    .notNull()
     .references(() => pods.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

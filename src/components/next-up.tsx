@@ -15,6 +15,10 @@ export function NextUp({ nextGamePods, nextGameTime, podNames }: NextUpProps) {
   // Display pods in their original order
   const displayPods = nextGamePods || [];
 
+  // Map DB IDs to relative pod numbers for fallback display
+  const podNumberMap = new Map<number, number>();
+  Array.from(podNames.keys()).sort((a, b) => a - b).forEach((id, index) => podNumberMap.set(id, index + 1));
+
   // Generate random color classes for badges
   const getColorClass = (index: number) => {
     const colors = [
@@ -72,7 +76,7 @@ export function NextUp({ nextGamePods, nextGameTime, podNames }: NextUpProps) {
                   variant="outline"
                   className={`px-3 py-2 text-sm font-semibold border-2 ${getColorClass(index)}`}
                 >
-                  {podNames.get(podId) || `Pod ${podId}`}
+                  {podNames.get(podId) || `Pod ${podNumberMap.get(podId) ?? podId}`}
                 </Badge>
               ))}
             </div>
