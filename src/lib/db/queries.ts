@@ -9,7 +9,7 @@ import {
   tournamentRoles,
   organizerWhitelist,
 } from "./schema";
-import { count, eq, desc, sql, asc, and } from "drizzle-orm";
+import { count, eq, desc, sql, asc, and, inArray } from "drizzle-orm";
 import {
   adaptPlayerNameToFirstName as _adaptPlayerNameToFirstName,
   adaptCombinedNamesToFirstNames as _adaptCombinedNamesToFirstNames,
@@ -1131,5 +1131,257 @@ export async function getUserTournamentRole(
   } catch (error) {
     console.error("Error fetching user tournament role:", error);
     return null;
+  }
+}
+
+// ─── User Profile ─────────────────────────────────────────────────────────────
+
+export type BracketFinish =
+  | "Champions"
+  | "Runner-up"
+  | "3rd Place"
+  | "Lost in Bracket";
+
+export type TournamentHistoryEntry = {
+  tournament: {
+    id: number;
+    name: string;
+    slug: string;
+    date: Date;
+    location: string | null;
+    status: string;
+    level: string | null;
+  };
+  role: "organizer" | "participant";
+  pod: {
+    player1: string;
+    player2: string | null;
+    player3: string | null;
+    teamName: string | null;
+  } | null;
+  poolRecord: { wins: number; losses: number } | null;
+  bracketFinish: BracketFinish | null;
+};
+
+export type UserTournamentStats = {
+  history: TournamentHistoryEntry[];
+  aggregates: {
+    tournamentsPlayed: number;
+    totalWins: number;
+    totalLosses: number;
+    winPercentage: number;
+  };
+};
+
+/**
+ * Get a user's full tournament history with stats for the profile page.
+ * Uses batch queries to minimize round-trips.
+ */
+export async function getUserTournamentStats(
+  userId: string
+): Promise<UserTournamentStats> {
+  const empty: UserTournamentStats = {
+    history: [],
+    aggregates: { tournamentsPlayed: 0, totalWins: 0, totalLosses: 0, winPercentage: 0 },
+  };
+
+  try {
+    // 1. Get all tournaments user has a role in
+    const userTournaments = await getUserTournaments(userId);
+    if (userTournaments.length === 0) return empty;
+
+    const tournamentIds = userTournaments.map((t) => t.id);
+
+    // 2. Batch-fetch user's pods across all their tournaments
+    const userPods = await db
+      .select({
+        id: pods.id,
+        tournamentId: pods.tournamentId,
+        player1: pods.player1,
+        player2: pods.player2,
+        player3: pods.player3,
+        teamName: pods.teamName,
+      })
+      .from(pods)
+      .where(and(eq(pods.userId, userId), inArray(pods.tournamentId, tournamentIds)));
+
+    const podByTournament = new Map(userPods.map((p) => [p.tournamentId, p]));
+    const podIds = userPods.map((p) => p.id);
+
+    // 3. Batch-fetch pool standings for user's pods
+    const standings =
+      podIds.length > 0
+        ? await db
+            .select({
+              podId: poolStandings.podId,
+              wins: poolStandings.wins,
+              losses: poolStandings.losses,
+            })
+            .from(poolStandings)
+            .where(inArray(poolStandings.podId, podIds))
+        : [];
+    const standingByPod = new Map(standings.map((s) => [s.podId, s]));
+
+    // 4. For completed tournaments, determine bracket finish
+    const completedIds = userTournaments
+      .filter((t) => t.status === "completed")
+      .map((t) => t.id);
+
+    const bracketFinishByTournament = new Map<number, BracketFinish | null>();
+
+    if (completedIds.length > 0 && podIds.length > 0) {
+      const [allBracketTeams, allBracketMatches] = await Promise.all([
+        db
+          .select({
+            id: bracketTeams.id,
+            tournamentId: bracketTeams.tournamentId,
+            pod1Id: bracketTeams.pod1Id,
+            pod2Id: bracketTeams.pod2Id,
+            pod3Id: bracketTeams.pod3Id,
+          })
+          .from(bracketTeams)
+          .where(inArray(bracketTeams.tournamentId, completedIds)),
+        db
+          .select({
+            id: bracketMatches.id,
+            tournamentId: bracketMatches.tournamentId,
+            gameNumber: bracketMatches.gameNumber,
+            bracketType: bracketMatches.bracketType,
+            teamAId: bracketMatches.teamAId,
+            teamBId: bracketMatches.teamBId,
+            teamAScore: bracketMatches.teamAScore,
+            teamBScore: bracketMatches.teamBScore,
+            status: bracketMatches.status,
+          })
+          .from(bracketMatches)
+          .where(
+            and(
+              inArray(bracketMatches.tournamentId, completedIds),
+              eq(bracketMatches.status, "completed")
+            )
+          ),
+      ]);
+
+      for (const tid of completedIds) {
+        const userPod = podByTournament.get(tid);
+        if (!userPod) {
+          bracketFinishByTournament.set(tid, null);
+          continue;
+        }
+
+        const userBracketTeam = allBracketTeams.find(
+          (bt) =>
+            bt.tournamentId === tid &&
+            (bt.pod1Id === userPod.id ||
+              bt.pod2Id === userPod.id ||
+              bt.pod3Id === userPod.id)
+        );
+        if (!userBracketTeam) {
+          bracketFinishByTournament.set(tid, null);
+          continue;
+        }
+
+        const tMatches = allBracketMatches.filter((m) => m.tournamentId === tid);
+
+        const champMatch = tMatches
+          .filter((m) => m.bracketType === "championship")
+          .sort((a, b) => b.gameNumber - a.gameNumber)[0];
+
+        const losersFinal = tMatches
+          .filter((m) => m.bracketType === "losers")
+          .sort((a, b) => b.gameNumber - a.gameNumber)[0];
+
+        const btId = userBracketTeam.id;
+        let finish: BracketFinish | null = null;
+
+        if (champMatch) {
+          const champWinnerId =
+            (champMatch.teamAScore ?? 0) > (champMatch.teamBScore ?? 0)
+              ? champMatch.teamAId
+              : champMatch.teamBId;
+          const champLoserId =
+            champWinnerId === champMatch.teamAId
+              ? champMatch.teamBId
+              : champMatch.teamAId;
+
+          if (btId === champWinnerId) {
+            finish = "Champions";
+          } else if (btId === champLoserId) {
+            finish = "Runner-up";
+          } else if (losersFinal) {
+            const losersWinnerId =
+              (losersFinal.teamAScore ?? 0) > (losersFinal.teamBScore ?? 0)
+                ? losersFinal.teamAId
+                : losersFinal.teamBId;
+            finish = btId === losersWinnerId ? "3rd Place" : "Lost in Bracket";
+          } else {
+            finish = "Lost in Bracket";
+          }
+        }
+
+        bracketFinishByTournament.set(tid, finish);
+      }
+    }
+
+    // 5. Assemble history
+    const history: TournamentHistoryEntry[] = userTournaments.map((t) => {
+      const pod = podByTournament.get(t.id) ?? null;
+      const standing = pod ? standingByPod.get(pod.id) ?? null : null;
+
+      return {
+        tournament: {
+          id: t.id,
+          name: t.name,
+          slug: t.slug,
+          date: t.date,
+          location: t.location ?? null,
+          status: t.status,
+          level: t.level ?? null,
+        },
+        role: t.role as "organizer" | "participant",
+        pod: pod
+          ? {
+              player1: pod.player1,
+              player2: pod.player2 ?? null,
+              player3: pod.player3 ?? null,
+              teamName: pod.teamName ?? null,
+            }
+          : null,
+        poolRecord: standing
+          ? { wins: standing.wins ?? 0, losses: standing.losses ?? 0 }
+          : null,
+        bracketFinish: bracketFinishByTournament.get(t.id) ?? null,
+      };
+    });
+
+    // 6. Compute aggregates (completed participant tournaments only)
+    let totalWins = 0;
+    let totalLosses = 0;
+    let tournamentsPlayed = 0;
+
+    for (const entry of history) {
+      if (
+        entry.tournament.status === "completed" &&
+        entry.role === "participant"
+      ) {
+        tournamentsPlayed++;
+        if (entry.poolRecord) {
+          totalWins += entry.poolRecord.wins;
+          totalLosses += entry.poolRecord.losses;
+        }
+      }
+    }
+
+    const totalGames = totalWins + totalLosses;
+    const winPercentage =
+      totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
+
+    return {
+      history,
+      aggregates: { tournamentsPlayed, totalWins, totalLosses, winPercentage },
+    };
+  } catch (error) {
+    console.error("Error fetching user tournament stats:", error);
+    return empty;
   }
 }

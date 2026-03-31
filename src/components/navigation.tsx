@@ -99,12 +99,15 @@ export function Navigation() {
           ))}
           {user && (
             <div className="flex items-center gap-3 border-l pl-6">
-              <div className="flex items-center gap-2 text-sm">
+              <Link
+                href="/profile"
+                className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
+              >
                 <User className="h-4 w-4" />
-                <span className="text-muted-foreground max-w-[150px] truncate">
+                <span className="text-muted-foreground max-w-[150px] truncate hover:text-primary">
                   {user.email}
                 </span>
-              </div>
+              </Link>
               <Button
                 variant="ghost"
                 size="sm"
@@ -147,13 +150,24 @@ export function Navigation() {
             {user && (
               <>
                 <div className="border-t pt-4">
-                  <div className="flex items-center gap-2 text-sm">
+                  <Link
+                    href="/profile"
+                    className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
                     <User className="h-4 w-4" />
                     <span className="text-muted-foreground truncate">
                       {user.email}
                     </span>
-                  </div>
+                  </Link>
                 </div>
+                <Link
+                  href="/profile"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center gap-2 text-sm font-medium text-foreground hover:text-primary transition-colors"
+                >
+                  My Profile
+                </Link>
                 <Button
                   variant="outline"
                   size="sm"
