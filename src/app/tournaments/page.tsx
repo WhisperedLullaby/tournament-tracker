@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { getAllTournaments, getPodCount } from "@/lib/db/queries";
 import Link from "next/link";
 import { createClient } from "@/lib/auth/server";
-import { isWhitelistedOrganizer } from "@/lib/db/queries";
+import { isWhitelistedOrganizer, isAdminUser } from "@/lib/db/queries";
 import { TournamentGridSkeleton } from "@/components/skeletons";
 import { TournamentStatusBadge, RegistrationStatusBadge } from "@/components/status-badges";
 import { Navigation } from "@/components/navigation";
@@ -13,12 +13,15 @@ import { Trophy, Plus } from "lucide-react";
 // Server component that fetches tournament data
 async function TournamentGrid({
   statusFilter,
+  isAdmin,
 }: {
   statusFilter?: "upcoming" | "active" | "completed";
+  isAdmin: boolean;
 }) {
   // Fetch tournaments with filter
   const tournaments = await getAllTournaments({
     isPublic: true,
+    includeTest: isAdmin,
     ...(statusFilter && { status: statusFilter }),
   });
 
@@ -122,9 +125,9 @@ export default async function TournamentsPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const canCreateTournaments = user
-    ? await isWhitelistedOrganizer(user.id)
-    : false;
+  const [canCreateTournaments, isAdmin] = user
+    ? await Promise.all([isWhitelistedOrganizer(user.id), isAdminUser(user.id)])
+    : [false, false];
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -203,7 +206,7 @@ export default async function TournamentsPage({
 
         {/* Tournament Grid with Suspense */}
         <Suspense fallback={<TournamentGridSkeleton count={6} />}>
-          <TournamentGrid statusFilter={statusFilter} />
+          <TournamentGrid statusFilter={statusFilter} isAdmin={isAdmin} />
         </Suspense>
       </div>
 

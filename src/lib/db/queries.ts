@@ -900,21 +900,23 @@ async function advance6TeamDE(tournamentId: number, g: number, winnerId: number,
 export async function getAllTournaments(filter?: {
   status?: "upcoming" | "active" | "completed";
   isPublic?: boolean;
+  includeTest?: boolean;
 }) {
   try {
     let query = db.select().from(tournaments);
 
-    if (filter) {
-      const conditions = [];
-      if (filter.status) {
-        conditions.push(eq(tournaments.status, filter.status));
-      }
-      if (filter.isPublic !== undefined) {
-        conditions.push(eq(tournaments.isPublic, filter.isPublic));
-      }
-      if (conditions.length > 0) {
-        query = query.where(and(...conditions)) as typeof query;
-      }
+    const conditions = [];
+    if (filter?.status) {
+      conditions.push(eq(tournaments.status, filter.status));
+    }
+    if (filter?.isPublic !== undefined) {
+      conditions.push(eq(tournaments.isPublic, filter.isPublic));
+    }
+    if (!filter?.includeTest) {
+      conditions.push(eq(tournaments.isTest, false));
+    }
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as typeof query;
     }
 
     const result = await query.orderBy(desc(tournaments.date));
@@ -1054,6 +1056,21 @@ export async function isWhitelistedOrganizer(userId: string): Promise<boolean> {
     return result.length > 0;
   } catch (error) {
     console.error("Error checking organizer whitelist:", error);
+    return false;
+  }
+}
+
+export async function isAdminUser(userId: string): Promise<boolean> {
+  try {
+    const result = await db
+      .select()
+      .from(organizerWhitelist)
+      .where(and(eq(organizerWhitelist.userId, userId), eq(organizerWhitelist.isAdmin, true)))
+      .limit(1);
+
+    return result.length > 0;
+  } catch (error) {
+    console.error("Error checking admin status:", error);
     return false;
   }
 }

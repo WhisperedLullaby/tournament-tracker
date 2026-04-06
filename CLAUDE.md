@@ -82,8 +82,9 @@ src/app/
 - **Callback:** `src/app/auth/callback/route.ts` — exchanges OAuth code, redirects to `/auth/complete`
 - **Complete:** `src/app/auth/complete/page.tsx` — client page that reads `sessionStorage` and redirects to intended destination
 - **Sign-in page:** `src/app/auth/signin/page.tsx` — for protected flows (registration, pickup games, etc.)
-- **Auth context:** `src/contexts/auth-context.tsx` — `AuthProvider` wraps root layout; exposes `user`, `signIn(redirectPath?)`, `signOut()` via `useAuth()` hook
+- **Auth context:** `src/contexts/auth-context.tsx` — `AuthProvider` wraps root layout; exposes `user`, `isLoading`, `signIn(redirectPath?)`, `signOut()` via `useAuth()` hook
 - **Sign-in flow:** `signIn()` stores intended path in `sessionStorage`, sets `redirectTo` to just `/auth/callback` (no query params — avoids Supabase URL allowlist issues)
+- **Navigation auth:** `src/components/navigation.tsx` uses `useAuth()` — do not manage auth state independently in this component. Sign In button renders when `!isLoading && !user`; guard with `isLoading` to avoid flash of wrong state.
 
 ### Tournament Context
 `src/contexts/tournament-context.tsx` — provides `tournament`, `userRole`, `isOrganizer`, `isParticipant` to all `[slug]` pages client-side.
@@ -119,6 +120,8 @@ src/app/
 | Scorekeeper | ❌ | ❌ | ✅ |
 | Settings | ❌ | ❌ | ✅ |
 | Create Tournament | ❌ | ❌ | ✅ (whitelist) |
+
+> **Nav behavior:** The global nav (`navigation.tsx`) shows a Sign In button for unauthenticated users and a "Create Tournament" link in the mobile drawer for all logged-in users (on non-tournament pages). The create page enforces whitelist authorization server-side and redirects unauthorized users to `/tournaments?error=not_authorized`.
 
 ---
 

@@ -88,6 +88,7 @@ export const tournaments = pgTable("tournaments", {
   registrationDeadline: timestamp("registration_deadline"),
   registrationOpenDate: timestamp("registration_open_date"),
   isPublic: boolean("is_public").default(true).notNull(),
+  isTest: boolean("is_test").default(false).notNull(),
   requireAuth: boolean("require_auth").default(true).notNull(), // Require authentication to register
   createdBy: text("created_by").notNull(), // User ID of tournament creator
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -211,6 +212,7 @@ export const organizerWhitelist = pgTable("organizer_whitelist", {
   addedBy: text("added_by").notNull(), // User ID of admin who added them
   addedAt: timestamp("added_at").defaultNow().notNull(),
   notes: text("notes"), // Optional notes about why whitelisted
+  isAdmin: boolean("is_admin").default(false).notNull(),
 });
 
 // Type exports for use in the application
