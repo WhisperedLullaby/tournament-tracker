@@ -112,16 +112,25 @@ src/app/
 
 ## Access Control Matrix
 
-| Page | Public | Participant | Organizer |
-|---|---|---|---|
-| Browse / Tournament Detail | ✅ | ✅ | ✅ |
-| Standings / Schedule / Bracket | ✅ | ✅ | ✅ |
-| Register | ✅ (if auth) | ✅ | ✅ |
-| Scorekeeper | ❌ | ❌ | ✅ |
-| Settings | ❌ | ❌ | ✅ |
-| Create Tournament | ❌ | ❌ | ✅ (whitelist) |
+| Page | Public | User (authed) | Organizer | Admin |
+|---|---|---|---|---|
+| Browse / Tournament Detail | ✅ | ✅ | ✅ | ✅ |
+| Standings / Schedule / Bracket | ✅ | ✅ | ✅ | ✅ |
+| Register | ✅ (if auth) | ✅ | ✅ | ✅ |
+| Scorekeeper | ❌ | ❌ | ✅ | ✅ |
+| Settings | ❌ | ❌ | ✅ | ✅ |
+| Create Tournament | ❌ | ❌ | ✅ (whitelist) | ✅ |
+| See test tournaments | ❌ | ❌ | ❌ | ✅ |
 
-> **Nav behavior:** The global nav (`navigation.tsx`) shows a Sign In button for unauthenticated users and a "Create Tournament" link in the mobile drawer for all logged-in users (on non-tournament pages). The create page enforces whitelist authorization server-side and redirects unauthorized users to `/tournaments?error=not_authorized`.
+**Role definitions:**
+- **Organizer** — in `organizer_whitelist` (`is_admin = false`). Can create tournaments.
+- **Admin** — in `organizer_whitelist` with `is_admin = true`. Superset of organizer; also sees test tournaments. Set via direct SQL update.
+
+**Test tournaments:** Set `is_test = true` on a tournament row to hide it from everyone except admins. Defaults to `false` so all existing tournaments are unaffected.
+
+> **Nav behavior:** `navigation.tsx` uses `useAuth()` — do not manage auth state independently in this component. Shows a Sign In button when `!isLoading && !user`. "Create Tournament" appears in the mobile drawer only for whitelisted organizers (`isWhitelisted = true` from `/api/user/whitelist`). The create page also enforces whitelist authorization server-side and redirects unauthorized users to `/tournaments?error=not_authorized`.
+
+> **Schema migrations:** `db:push` has a known bug with check constraints on this schema — use direct SQL via Supabase MCP instead.
 
 ---
 
@@ -231,7 +240,7 @@ RESEND_API_KEY                    # Email service
 - Email notifications / announcements pipeline (Resend partially wired)
 - Payment integration for registration
 - Automated schedule generation from CSV upload
-- Admin UI for organizer whitelist management
+- Admin UI for organizer/admin whitelist management (currently managed via direct SQL)
 - SPR rating system (like Scoreholio)
 - "Power up" tournament mode (experimental idea)
 - Tournament templates (duplicate structure)
