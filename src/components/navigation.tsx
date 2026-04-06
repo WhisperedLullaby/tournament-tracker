@@ -3,58 +3,45 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { Menu, X, User, LogOut } from "lucide-react";
-import { createClient } from "@/lib/auth/client";
+import { Menu, X, User, LogOut, Plus, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { useAuth } from "@/contexts/auth-context";
 
 export function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [user, setUser] = useState<SupabaseUser | null>(null);
   const [userRole, setUserRole] = useState<"organizer" | "participant" | null>(null);
   const pathname = usePathname();
-  const supabase = createClient();
+  const { user, isLoading, signIn, signOut } = useAuth();
 
   // Extract tournament slug from pathname if on a tournament page
   const tournamentSlug = pathname?.match(/^\/tournaments\/([^/]+)/)?.[1];
   const isOnTournamentPage = !!tournamentSlug && tournamentSlug !== "create";
 
   useEffect(() => {
-    // Check current auth state
-    const checkAuth = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
+    if (!user || !tournamentSlug || tournamentSlug === "create") return;
 
-      // Fetch user role for the current tournament if on tournament page
-      if (session?.user && tournamentSlug && tournamentSlug !== "create") {
-        try {
-          const response = await fetch(`/api/tournaments/${tournamentSlug}/role`);
-          if (response.ok) {
-            const data = await response.json();
-            setUserRole(data.role);
-          }
-        } catch (error) {
-          console.error("Error fetching user role:", error);
+    const fetchRole = async () => {
+      try {
+        const response = await fetch(`/api/tournaments/${tournamentSlug}/role`);
+        if (response.ok) {
+          const data = await response.json();
+          setUserRole(data.role);
         }
+      } catch (error) {
+        console.error("Error fetching user role:", error);
       }
     };
 
-    checkAuth();
-
-    // Listen for auth state changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [supabase.auth, tournamentSlug]);
+    fetchRole();
+  }, [user, tournamentSlug]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await signOut();
+    setIsMenuOpen(false);
+  };
+
+  const handleSignIn = () => {
+    signIn(pathname ?? "/");
     setIsMenuOpen(false);
   };
 
@@ -97,25 +84,34 @@ export function Navigation() {
               {item.label}
             </Link>
           ))}
-          {user && (
+          {!isLoading && (
             <div className="flex items-center gap-3 border-l pl-6">
-              <Link
-                href="/profile"
-                className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
-              >
-                <User className="h-4 w-4" />
-                <span className="text-muted-foreground max-w-[150px] truncate hover:text-primary">
-                  {user.email}
-                </span>
-              </Link>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSignOut}
-                className="h-8"
-              >
-                <LogOut className="h-4 w-4" />
-              </Button>
+              {user ? (
+                <>
+                  <Link
+                    href="/profile"
+                    className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
+                  >
+                    <User className="h-4 w-4" />
+                    <span className="text-muted-foreground max-w-[150px] truncate hover:text-primary">
+                      {user.email}
+                    </span>
+                  </Link>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSignOut}
+                    className="h-8"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                </>
+              ) : (
+                <Button variant="default" size="sm" onClick={handleSignIn}>
+                  <LogIn className="mr-2 h-4 w-4" />
+                  Sign In
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -147,37 +143,63 @@ export function Navigation() {
                 {item.label}
               </Link>
             ))}
-            {user && (
-              <>
-                <div className="border-t pt-4">
-                  <Link
-                    href="/profile"
-                    className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
-                    onClick={() => setIsMenuOpen(false)}
+            {!isLoading && (
+              <div className="border-t pt-4 flex flex-col gap-3">
+                {user ? (
+                  <>
+                    <Link
+                      href="/profile"
+                      className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      <User className="h-4 w-4" />
+                      <span className="text-muted-foreground truncate">
+                        {user.email}
+                      </span>
+                    </Link>
+                    <Link
+                      href="/profile"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center gap-2 text-sm font-medium text-foreground hover:text-primary transition-colors"
+                    >
+                      My Profile
+                    </Link>
+                    {!isOnTournamentPage && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        asChild
+                        className="w-full justify-start"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        <Link href="/tournaments/create">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Create Tournament
+                        </Link>
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSignOut}
+                      className="w-full justify-start"
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Sign Out
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleSignIn}
+                    className="w-full"
                   >
-                    <User className="h-4 w-4" />
-                    <span className="text-muted-foreground truncate">
-                      {user.email}
-                    </span>
-                  </Link>
-                </div>
-                <Link
-                  href="/profile"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="flex items-center gap-2 text-sm font-medium text-foreground hover:text-primary transition-colors"
-                >
-                  My Profile
-                </Link>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSignOut}
-                  className="w-full justify-start"
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign Out
-                </Button>
-              </>
+                    <LogIn className="mr-2 h-4 w-4" />
+                    Sign In
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </div>
