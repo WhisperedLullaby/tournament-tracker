@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   Table,
   TableBody,
@@ -21,6 +22,7 @@ interface ScheduleTableProps {
 
 export function ScheduleTable({ matches, podNames }: ScheduleTableProps) {
   const [filterPod, setFilterPod] = useState<number | null>(null);
+  const shouldReduceMotion = useReducedMotion();
 
   // Get unique pod IDs from podNames map and sort them
   const allPodIds = Array.from(podNames.keys()).sort((a, b) => a - b);
@@ -150,9 +152,15 @@ export function ScheduleTable({ matches, podNames }: ScheduleTableProps) {
                           {formatTeamNames(match.teamAPods as number[])}
                         </span>
                         {match.status !== "pending" && (
-                          <span className="text-primary mt-1 text-sm font-semibold">
+                          <motion.span
+                            key={`${match.id}-a-${match.teamAScore}`}
+                            initial={shouldReduceMotion ? {} : { scale: 1.2, opacity: 0.7, filter: "drop-shadow(0 0 4px #dc4444)" }}
+                            animate={{ scale: 1, opacity: 1, filter: "drop-shadow(0 0 0px #dc4444)" }}
+                            transition={{ duration: 0.35 }}
+                            className="text-primary mt-1 text-sm font-semibold"
+                          >
                             {match.teamAScore}
-                          </span>
+                          </motion.span>
                         )}
                       </div>
                     </TableCell>
@@ -165,9 +173,15 @@ export function ScheduleTable({ matches, podNames }: ScheduleTableProps) {
                           {formatTeamNames(match.teamBPods as number[])}
                         </span>
                         {match.status !== "pending" && (
-                          <span className="text-primary mt-1 text-sm font-semibold">
+                          <motion.span
+                            key={`${match.id}-b-${match.teamBScore}`}
+                            initial={shouldReduceMotion ? {} : { scale: 1.2, opacity: 0.7, filter: "drop-shadow(0 0 4px #dc4444)" }}
+                            animate={{ scale: 1, opacity: 1, filter: "drop-shadow(0 0 0px #dc4444)" }}
+                            transition={{ duration: 0.35 }}
+                            className="text-primary mt-1 text-sm font-semibold"
+                          >
                             {match.teamBScore}
-                          </span>
+                          </motion.span>
                         )}
                       </div>
                     </TableCell>

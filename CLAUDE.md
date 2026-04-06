@@ -173,6 +173,58 @@ The multi-step registration form has a payment step but it's not connected to an
 
 ---
 
+## Animations
+
+framer-motion v12 is used throughout. Follow the existing import pattern: `import { motion, AnimatePresence } from "framer-motion"`.
+
+### Patterns established
+
+- **`ease: "easeOut" as const`** — required in framer-motion variant `transition` objects to satisfy TypeScript's `Easing` type. Always use `as const` on ease strings inside variants.
+- **Key-based remount** — `key={score}` on a `motion.div`/`motion.span` triggers re-animation whenever the value changes. Used for score change indicators on schedule and bracket pages.
+- **`useReducedMotion()`** — imported from framer-motion; all animated components check this and set `duration: 0` when true.
+- **Server/client boundary** — server components cannot use framer-motion directly. Extract animated sections into `"use client"` components that receive serialized data as props (e.g. `TournamentCardGrid`).
+- **Canvas sizing** — use `ResizeObserver` on the canvas element (not `window.addEventListener("resize")`) so sizing works correctly when mounted inside `AnimatePresence`.
+- **`motion.button` type conflict** — framer-motion's `onDrag` conflicts with React's `DragEventHandler<HTMLButtonElement>`. Use Tailwind `hover:scale-[1.02] active:scale-[0.97]` for button animations instead.
+
+### Score celebration system (scoreboard)
+
+`src/components/celebrations/` — four canvas-based particle animations randomly selected each time a team scores:
+
+| File | Effect |
+|---|---|
+| `score-celebration.tsx` | Picker — `useState` initializer randomly selects one of the four on mount |
+| `shooting-stars-canvas.tsx` (`src/components/`) | Diagonal shooting stars, warm gold `rgb(200,165,70)` |
+| `fireworks.tsx` | 4 staggered bursts, 7-color earthy palette, dt-based physics |
+| `rising-embers.tsx` | Upward-drifting ember particles with sine-wave drift |
+| `sparkle-field.tsx` | 4-armed star sparkles with bloom glow, phase system (growing→peak→fading) |
+
+**Integration** (`score-panel.tsx`): each team container is `relative overflow-hidden`. `AnimatePresence` mounts/unmounts `<ScoreCelebration>` wrapped in a fading `motion.div` (`opacity 0→1→0`, 0.35s transitions). Score change detected via `useRef` comparison in `useEffect`; celebration auto-dismisses after 2800ms via `setTimeout`.
+
+### Divider line glow
+
+Vertical and horizontal divider lines use a CSS `linear-gradient` background (transparent → color → transparent) with an animated `filter: drop-shadow` pulse — this produces a tapered glow that `box-shadow` cannot. Pattern:
+```tsx
+<motion.div
+  style={{ background: "linear-gradient(to bottom, transparent, rgba(74,86,81,0.5) 20%, rgba(74,86,81,0.5) 80%, transparent)" }}
+  animate={{ filter: ["drop-shadow(0 0 0px rgba(200,165,70,0))", "drop-shadow(0 0 3px rgba(200,165,70,0.45))", "drop-shadow(0 0 0px rgba(200,165,70,0))"] }}
+  transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+/>
+```
+
+### Other animated components
+
+| Component | Animation |
+|---|---|
+| `tournament-card-grid.tsx` | Stagger entrance (0.07s), hover lift `y: -4`, tap `scale: 0.98` |
+| `navigation.tsx` | Mobile drawer slides in/out with `AnimatePresence`; nav items stagger |
+| `reveal-section.tsx` | `whileInView` fade+slide up, `once: true`, respects reduced motion |
+| `bracket-team-cards.tsx` | Stagger entrance + hover lift |
+| `bracket-display.tsx` | Clock spin (8s), score key-remount, team name `AnimatePresence` reveal |
+| `current-game.tsx` | Score change: `scale 1.35→1` + red drop-shadow flash |
+| `schedule-table.tsx` | Score change: `scale 1.2→1` + red drop-shadow flash (subtler) |
+
+---
+
 ## Development Workflow
 
 ### Commands

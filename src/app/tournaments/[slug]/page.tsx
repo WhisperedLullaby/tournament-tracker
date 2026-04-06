@@ -19,6 +19,7 @@ import { TournamentFormatSection } from "@/components/sections/tournament-format
 import { TournamentRulesSection } from "@/components/sections/tournament-rules-section";
 import { TournamentCTASection } from "@/components/sections/tournament-cta-section";
 import { QuickActionsSubFooter } from "@/components/sections/quick-actions-subfooter";
+import { RevealSection } from "@/components/reveal-section";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -126,30 +127,38 @@ export default function TournamentPage() {
       />
 
       {/* Tournament Details Section */}
-      <TournamentDetailsSection
-        date={tournament.date}
-        location={tournament.location}
-        maxPods={tournament.maxPods}
-        registrationDeadline={tournament.registrationDeadline}
-        prizeInfo={tournament.prizeInfo}
-      />
+      <RevealSection delay={0}>
+        <TournamentDetailsSection
+          date={tournament.date}
+          location={tournament.location}
+          maxPods={tournament.maxPods}
+          registrationDeadline={tournament.registrationDeadline}
+          prizeInfo={tournament.prizeInfo}
+        />
+      </RevealSection>
 
       {/* Tournament Format Section */}
-      <TournamentFormatSection
-        poolPlayDescription={tournament.poolPlayDescription}
-        bracketPlayDescription={tournament.bracketPlayDescription}
-        tournamentType={tournament.tournamentType}
-      />
+      <RevealSection delay={0.1}>
+        <TournamentFormatSection
+          poolPlayDescription={tournament.poolPlayDescription}
+          bracketPlayDescription={tournament.bracketPlayDescription}
+          tournamentType={tournament.tournamentType}
+        />
+      </RevealSection>
 
       {/* Tournament Rules Section */}
-      <TournamentRulesSection rulesDescription={tournament.rulesDescription} />
+      <RevealSection delay={0.15}>
+        <TournamentRulesSection rulesDescription={tournament.rulesDescription} />
+      </RevealSection>
 
       {/* CTA Section */}
-      <TournamentCTASection
-        tournamentSlug={tournament.slug}
-        tournamentStatus={tournament.status as "upcoming" | "active" | "completed"}
-        hasRegisteredTeam={hasRegisteredTeam}
-      />
+      <RevealSection delay={0.2}>
+        <TournamentCTASection
+          tournamentSlug={tournament.slug}
+          tournamentStatus={tournament.status as "upcoming" | "active" | "completed"}
+          hasRegisteredTeam={hasRegisteredTeam}
+        />
+      </RevealSection>
 
       {/* Quick Actions Sub-Footer */}
       <QuickActionsSubFooter

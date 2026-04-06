@@ -6,16 +6,55 @@ import { usePathname } from "next/navigation";
 import { Menu, X, User, LogOut, Plus, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+
+const drawerVariants = {
+  hidden: { opacity: 0, y: -6 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.2, ease: "easeOut" as const, staggerChildren: 0.05, delayChildren: 0.05 },
+  },
+  exit: { opacity: 0, y: -6, transition: { duration: 0.15, ease: "easeIn" as const } },
+};
+
+const navItemVariants = {
+  hidden: { opacity: 0, x: -8 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.18 } },
+};
 
 export function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
   const [userRole, setUserRole] = useState<"organizer" | "participant" | null>(null);
+  const [isWhitelisted, setIsWhitelisted] = useState(false);
   const pathname = usePathname();
   const { user, isLoading, signIn, signOut } = useAuth();
 
   // Extract tournament slug from pathname if on a tournament page
   const tournamentSlug = pathname?.match(/^\/tournaments\/([^/]+)/)?.[1];
   const isOnTournamentPage = !!tournamentSlug && tournamentSlug !== "create";
+
+  useEffect(() => {
+    if (!user) {
+      setIsWhitelisted(false);
+      return;
+    }
+
+    const fetchWhitelist = async () => {
+      try {
+        const response = await fetch("/api/user/whitelist");
+        if (response.ok) {
+          const data = await response.json();
+          setIsWhitelisted(data.isWhitelisted);
+        }
+      } catch (error) {
+        console.error("Error fetching whitelist status:", error);
+      }
+    };
+
+    fetchWhitelist();
+  }, [user]);
 
   useEffect(() => {
     if (!user || !tournamentSlug || tournamentSlug === "create") return;
@@ -130,80 +169,92 @@ export function Navigation() {
       </div>
 
       {/* Mobile Navigation */}
-      {isMenuOpen && (
-        <div className="border-t md:hidden">
-          <div className="container mx-auto flex flex-col gap-4 px-4 py-4">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="text-foreground hover:text-primary text-sm font-medium transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                {item.label}
-              </Link>
-            ))}
-            {!isLoading && (
-              <div className="border-t pt-4 flex flex-col gap-3">
-                {user ? (
-                  <>
-                    <Link
-                      href="/profile"
-                      className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      <User className="h-4 w-4" />
-                      <span className="text-muted-foreground truncate">
-                        {user.email}
-                      </span>
-                    </Link>
-                    <Link
-                      href="/profile"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-2 text-sm font-medium text-foreground hover:text-primary transition-colors"
-                    >
-                      My Profile
-                    </Link>
-                    {!isOnTournamentPage && (
+      <AnimatePresence>
+        {isMenuOpen && (
+          <motion.div
+            className="border-t md:hidden"
+            variants={shouldReduceMotion ? undefined : drawerVariants}
+            initial={shouldReduceMotion ? { opacity: 1 } : "hidden"}
+            animate={shouldReduceMotion ? { opacity: 1 } : "visible"}
+            exit={shouldReduceMotion ? { opacity: 0 } : "exit"}
+          >
+            <div className="container mx-auto flex flex-col gap-4 px-4 py-4">
+              {navItems.map((item) => (
+                <motion.div key={item.href} variants={shouldReduceMotion ? undefined : navItemVariants}>
+                  <Link
+                    href={item.href}
+                    className="text-foreground hover:text-primary text-sm font-medium transition-colors"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {item.label}
+                  </Link>
+                </motion.div>
+              ))}
+              {!isLoading && (
+                <motion.div
+                  className="border-t pt-4 flex flex-col gap-3"
+                  variants={shouldReduceMotion ? undefined : navItemVariants}
+                >
+                  {user ? (
+                    <>
+                      <Link
+                        href="/profile"
+                        className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        <User className="h-4 w-4" />
+                        <span className="text-muted-foreground truncate">
+                          {user.email}
+                        </span>
+                      </Link>
+                      <Link
+                        href="/profile"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-2 text-sm font-medium text-foreground hover:text-primary transition-colors"
+                      >
+                        My Profile
+                      </Link>
+                      {isWhitelisted && !isOnTournamentPage && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          asChild
+                          className="w-full justify-start"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          <Link href="/tournaments/create">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Create Tournament
+                          </Link>
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"
-                        asChild
+                        onClick={handleSignOut}
                         className="w-full justify-start"
-                        onClick={() => setIsMenuOpen(false)}
                       >
-                        <Link href="/tournaments/create">
-                          <Plus className="mr-2 h-4 w-4" />
-                          Create Tournament
-                        </Link>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Sign Out
                       </Button>
-                    )}
+                    </>
+                  ) : (
                     <Button
-                      variant="outline"
+                      variant="default"
                       size="sm"
-                      onClick={handleSignOut}
-                      className="w-full justify-start"
+                      onClick={handleSignIn}
+                      className="w-full"
                     >
-                      <LogOut className="mr-2 h-4 w-4" />
-                      Sign Out
+                      <LogIn className="mr-2 h-4 w-4" />
+                      Sign In
                     </Button>
-                  </>
-                ) : (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={handleSignIn}
-                    className="w-full"
-                  >
-                    <LogIn className="mr-2 h-4 w-4" />
-                    Sign In
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+                  )}
+                </motion.div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </nav>
   );
 }

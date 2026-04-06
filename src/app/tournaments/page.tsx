@@ -4,10 +4,10 @@ import Link from "next/link";
 import { createClient } from "@/lib/auth/server";
 import { isWhitelistedOrganizer, isAdminUser } from "@/lib/db/queries";
 import { TournamentGridSkeleton } from "@/components/skeletons";
-import { TournamentStatusBadge, RegistrationStatusBadge } from "@/components/status-badges";
 import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
+import { TournamentCardGrid } from "@/components/tournament-card-grid";
 import { Trophy, Plus } from "lucide-react";
 
 // Server component that fetches tournament data
@@ -46,66 +46,7 @@ async function TournamentGrid({
     );
   }
 
-  return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {tournamentData.map(({ tournament, podCount }) => (
-        <Link
-          key={tournament.id}
-          href={`/tournaments/${tournament.slug}`}
-          className="block p-6 bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
-        >
-          <div className="flex justify-between items-start mb-2">
-            <h2 className="text-xl font-semibold">{tournament.name}</h2>
-            <TournamentStatusBadge status={tournament.status as "upcoming" | "active" | "completed"} />
-          </div>
-
-          <p className="text-sm text-gray-600 mb-2">
-            {new Date(tournament.date).toLocaleDateString("en-US", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-          </p>
-
-          {tournament.location && (
-            <p className="text-sm text-gray-500 mb-3">
-              📍 {tournament.location}
-            </p>
-          )}
-
-          {tournament.description && (
-            <p className="text-sm text-gray-700 line-clamp-2 mb-3">
-              {tournament.description}
-            </p>
-          )}
-
-          {/* Registration Status */}
-          <div className="pt-3 border-t mt-3">
-            <div className="flex justify-between items-center text-sm mb-2">
-              <span className="text-gray-600">Teams Registered:</span>
-              <span
-                className={`font-semibold ${
-                  podCount >= tournament.maxPods
-                    ? "text-red-600"
-                    : "text-blue-600"
-                }`}
-              >
-                {podCount}/{tournament.maxPods}
-              </span>
-            </div>
-            {podCount >= tournament.maxPods && (
-              <RegistrationStatusBadge status="full" />
-            )}
-            {podCount < tournament.maxPods &&
-              tournament.status === "upcoming" && (
-                <RegistrationStatusBadge status="open" />
-              )}
-          </div>
-        </Link>
-      ))}
-    </div>
-  );
+  return <TournamentCardGrid data={tournamentData} />;
 }
 
 export default async function TournamentsPage({

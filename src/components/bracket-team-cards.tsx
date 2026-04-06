@@ -1,8 +1,23 @@
 "use client";
 
+import { motion, useReducedMotion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trophy, Medal } from "lucide-react";
 import type { BracketTeam } from "@/lib/db/schema";
+
+const container = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.08 } },
+};
+
+const item = {
+  hidden: { opacity: 0, y: 16 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.45, ease: "easeOut" as const },
+  },
+};
 
 interface BracketTeamCardsProps {
   teams: BracketTeam[];
@@ -10,6 +25,8 @@ interface BracketTeamCardsProps {
 }
 
 export function BracketTeamCards({ teams, pods }: BracketTeamCardsProps) {
+  const shouldReduceMotion = useReducedMotion();
+
   // Sort teams by name (Team A, Team B, Team C)
   const sortedTeams = [...teams].sort((a, b) =>
     a.teamName.localeCompare(b.teamName)
@@ -55,7 +72,12 @@ export function BracketTeamCards({ teams, pods }: BracketTeamCardsProps) {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <motion.div
+        className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
+        variants={shouldReduceMotion ? undefined : container}
+        initial={shouldReduceMotion ? false : "hidden"}
+        animate="visible"
+      >
         {sortedTeams.map((team) => {
           const seed = getSeedNumber(team.teamName);
           const seedColors = {
@@ -66,9 +88,14 @@ export function BracketTeamCards({ teams, pods }: BracketTeamCardsProps) {
           };
 
           return (
-            <Card
+            <motion.div
               key={team.id}
-              className={`border-2 transition-all hover:shadow-lg ${
+              variants={shouldReduceMotion ? undefined : item}
+              whileHover={shouldReduceMotion ? {} : { y: -3, scale: 1.01 }}
+              transition={{ duration: 0.2 }}
+            >
+            <Card
+              className={`border-2 transition-all hover:shadow-lg h-full ${
                 seedColors[seed as keyof typeof seedColors] || "border-muted"
               }`}
             >
@@ -108,9 +135,10 @@ export function BracketTeamCards({ teams, pods }: BracketTeamCardsProps) {
                 </div>
               </CardContent>
             </Card>
+            </motion.div>
           );
         })}
-      </div>
+      </motion.div>
     </div>
   );
 }

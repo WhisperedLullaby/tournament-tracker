@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { PoolMatch } from "@/lib/db/schema";
@@ -18,6 +19,7 @@ export function CurrentGame({
 }: CurrentGameProps) {
   const [match, setMatch] = useState<PoolMatch | null>(initialMatch);
   const [showCompletedAnimation, setShowCompletedAnimation] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
 
   // Update match when prop changes (from page-level subscription)
   useEffect(() => {
@@ -118,7 +120,11 @@ export function CurrentGame({
                 {formatTeamNames(teamAPods)}
               </p>
             </div>
-            <div
+            <motion.div
+              key={`score-a-${match.teamAScore}`}
+              initial={shouldReduceMotion ? {} : { scale: 1.35, filter: "drop-shadow(0 0 12px #dc4444)" }}
+              animate={{ scale: 1, filter: "drop-shadow(0 0 0px #dc4444)" }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
               className={`text-6xl font-bold tabular-nums ${
                 showCompletedAnimation && winner === "A"
                   ? "text-primary"
@@ -126,7 +132,7 @@ export function CurrentGame({
               }`}
             >
               {match.teamAScore}
-            </div>
+            </motion.div>
           </div>
 
           {/* Team B */}
@@ -145,7 +151,11 @@ export function CurrentGame({
                 {formatTeamNames(teamBPods)}
               </p>
             </div>
-            <div
+            <motion.div
+              key={`score-b-${match.teamBScore}`}
+              initial={shouldReduceMotion ? {} : { scale: 1.35, filter: "drop-shadow(0 0 12px #dc4444)" }}
+              animate={{ scale: 1, filter: "drop-shadow(0 0 0px #dc4444)" }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
               className={`text-6xl font-bold tabular-nums ${
                 showCompletedAnimation && winner === "B"
                   ? "text-primary"
@@ -153,7 +163,7 @@ export function CurrentGame({
               }`}
             >
               {match.teamBScore}
-            </div>
+            </motion.div>
           </div>
         </div>
 

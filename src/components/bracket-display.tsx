@@ -1,5 +1,6 @@
 "use client";
 
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Trophy, Clock } from "lucide-react";
 import type { BracketMatch, BracketTeam } from "@/lib/db/schema";
@@ -11,6 +12,8 @@ interface BracketDisplayProps {
 }
 
 export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
+  const shouldReduceMotion = useReducedMotion();
+
   // Helper to get team name by ID
   const getTeamName = (teamId: number | null): string => {
     if (!teamId) return "TBD";
@@ -87,7 +90,12 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
               {label}
             </div>
             {isInProgress && (
-              <Clock className="text-primary h-3 w-3 animate-pulse" />
+              <motion.div
+                animate={shouldReduceMotion ? {} : { rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 8, ease: "linear" }}
+              >
+                <Clock className="text-primary h-3 w-3" />
+              </motion.div>
             )}
             {isComplete && <Trophy className="h-3 w-3 text-green-600" />}
           </div>
@@ -103,20 +111,31 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
             }`}
             title={match.teamAId ? getTeamDisplay(match.teamAId) : undefined}
           >
-            <span
-              className={`truncate text-sm font-medium ${
-                teamAWon ? "text-green-600 dark:text-green-400" : ""
-              } ${!match.teamAId ? "text-muted-foreground italic" : ""}`}
-            >
-              {teamAName}
-            </span>
-            <span
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={`team-a-${match.teamAId ?? "tbd"}`}
+                initial={shouldReduceMotion ? {} : { opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={shouldReduceMotion ? {} : { opacity: 0, x: 6 }}
+                transition={{ duration: 0.2 }}
+                className={`truncate text-sm font-medium ${
+                  teamAWon ? "text-green-600 dark:text-green-400" : ""
+                } ${!match.teamAId ? "text-muted-foreground italic" : ""}`}
+              >
+                {teamAName}
+              </motion.span>
+            </AnimatePresence>
+            <motion.span
+              key={`score-a-${match.id}-${match.teamAScore}`}
+              initial={shouldReduceMotion ? {} : { scale: 1.3, opacity: 0.6 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.35 }}
               className={`ml-2 text-sm font-bold ${
                 teamAWon ? "text-green-600 dark:text-green-400" : ""
               }`}
             >
               {match.teamAScore}
-            </span>
+            </motion.span>
           </div>
 
           {/* Team B */}
@@ -130,20 +149,31 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
             }`}
             title={match.teamBId ? getTeamDisplay(match.teamBId) : undefined}
           >
-            <span
-              className={`truncate text-sm font-medium ${
-                teamBWon ? "text-green-600 dark:text-green-400" : ""
-              } ${!match.teamBId ? "text-muted-foreground italic" : ""}`}
-            >
-              {teamBName}
-            </span>
-            <span
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={`team-b-${match.teamBId ?? "tbd"}`}
+                initial={shouldReduceMotion ? {} : { opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={shouldReduceMotion ? {} : { opacity: 0, x: 6 }}
+                transition={{ duration: 0.2 }}
+                className={`truncate text-sm font-medium ${
+                  teamBWon ? "text-green-600 dark:text-green-400" : ""
+                } ${!match.teamBId ? "text-muted-foreground italic" : ""}`}
+              >
+                {teamBName}
+              </motion.span>
+            </AnimatePresence>
+            <motion.span
+              key={`score-b-${match.id}-${match.teamBScore}`}
+              initial={shouldReduceMotion ? {} : { scale: 1.3, opacity: 0.6 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.35 }}
               className={`ml-2 text-sm font-bold ${
                 teamBWon ? "text-green-600 dark:text-green-400" : ""
               }`}
             >
               {match.teamBScore}
-            </span>
+            </motion.span>
           </div>
         </CardContent>
       </Card>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { motion } from "framer-motion";
 import { createClient } from "@/lib/auth/client";
 import type { Tournament } from "@/lib/db/schema";
 import type { ScoreboardMatchData } from "./types";
@@ -61,7 +62,21 @@ export function ScoreboardClient({ tournament, initialData }: Props) {
           <h1 className="text-xl font-bold tracking-[0.2em] text-foreground/60 uppercase">
             {tournament.name}
           </h1>
-          <div className="h-px w-24 bg-border/40 mt-1" />
+          <motion.div
+            className="h-px w-24 mt-1"
+            style={{
+              background:
+                "linear-gradient(to right, transparent, rgba(74,86,81,0.4) 20%, rgba(74,86,81,0.4) 80%, transparent)",
+            }}
+            animate={{
+              filter: [
+                "drop-shadow(0 0 0px rgba(200,165,70,0))",
+                "drop-shadow(0 0 3px rgba(200,165,70,0.45))",
+                "drop-shadow(0 0 0px rgba(200,165,70,0))",
+              ],
+            }}
+            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+          />
           {data && (
             <p className="text-xs text-muted-foreground tracking-[0.3em] uppercase mt-1">
               {data.gameLabel}
