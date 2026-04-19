@@ -1,6 +1,6 @@
 import { TournamentCreationForm } from "@/components/tournament-creation-form";
 import { createClient } from "@/lib/auth/server";
-import { isWhitelistedOrganizer } from "@/lib/db/queries";
+import { isWhitelistedOrganizer, isAdminUser } from "@/lib/db/queries";
 import { redirect } from "next/navigation";
 
 export default async function CreateTournamentPage() {
@@ -14,7 +14,11 @@ export default async function CreateTournamentPage() {
     redirect("/tournaments?error=auth_required");
   }
 
-  const isOrganizer = await isWhitelistedOrganizer(user.id);
+  const [isOrganizer, isAdmin] = await Promise.all([
+    isWhitelistedOrganizer(user.id),
+    isAdminUser(user.id),
+  ]);
+
   if (!isOrganizer) {
     redirect("/tournaments?error=not_authorized");
   }
@@ -25,7 +29,7 @@ export default async function CreateTournamentPage() {
         Create Tournament
       </h1>
 
-      <TournamentCreationForm />
+      <TournamentCreationForm isAdmin={isAdmin} />
     </div>
   );
 }

@@ -62,10 +62,11 @@ type FormData = {
   registrationOpenDate: string;
   isPublic: boolean;
   requireAuth: boolean;
+  isTest: boolean;
   status: "upcoming" | "active" | "completed";
 };
 
-export function TournamentCreationForm() {
+export function TournamentCreationForm({ isAdmin = false }: { isAdmin?: boolean }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<FormData>({
@@ -108,6 +109,7 @@ export function TournamentCreationForm() {
     registrationOpenDate: "",
     isPublic: true,
     requireAuth: true,
+    isTest: false,
     status: "upcoming",
   });
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>(
@@ -707,6 +709,26 @@ export function TournamentCreationForm() {
                 Uncheck this if you need to manually enter registrations from external forms. Most tournaments should require authentication.
               </p>
             </div>
+
+            {isAdmin && (
+              <div className="space-y-2 rounded-md border border-dashed border-amber-500/40 bg-amber-500/5 p-3">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="isTest"
+                    checked={formData.isTest}
+                    onChange={(e) => updateField("isTest", e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <Label htmlFor="isTest" className="font-normal text-amber-600 dark:text-amber-400">
+                    Test tournament (admin only)
+                  </Label>
+                </div>
+                <p className="text-muted-foreground text-xs ml-6">
+                  Hidden from all users except admins. Use for development and testing.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Submit Buttons */}
