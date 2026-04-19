@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { tournaments, tournamentRoles } from "@/lib/db/schema";
 import { createClient } from "@/lib/auth/server";
-import { isWhitelistedOrganizer } from "@/lib/db/queries";
+import { isWhitelistedOrganizer, isAdminUser } from "@/lib/db/queries";
 
 interface TournamentData {
   name: string;
@@ -44,6 +44,7 @@ interface TournamentData {
   registrationOpenDate: string;
   isPublic: boolean;
   requireAuth: boolean;
+  isTest: boolean;
   status: "upcoming" | "active" | "completed";
 }
 
@@ -62,8 +63,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user is whitelisted organizer
-    const isOrganizer = await isWhitelistedOrganizer(user.id);
+    // Check if user is whitelisted organizer (and separately if admin)
+    const [isOrganizer, isAdmin] = await Promise.all([
+      isWhitelistedOrganizer(user.id),
+      isAdminUser(user.id),
+    ]);
+
     if (!isOrganizer) {
       return NextResponse.json(
         { error: "Not authorized to create tournaments" },
@@ -101,6 +106,7 @@ export async function POST(request: NextRequest) {
       registrationOpenDate,
       isPublic,
       requireAuth,
+      isTest,
       status,
     } = body;
 
@@ -185,6 +191,7 @@ export async function POST(request: NextRequest) {
           : null,
         isPublic,
         requireAuth,
+        isTest: isAdmin ? isTest : false,
         status,
         createdBy: user.id,
       })
