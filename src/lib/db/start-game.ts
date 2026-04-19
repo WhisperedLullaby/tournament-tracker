@@ -4,8 +4,6 @@
  * Example: npx tsx --env-file=.env.local src/lib/db/start-game.ts 1
  */
 
-/* eslint-disable no-console */
-
 import { config } from "dotenv";
 
 // Load environment variables from .env.local

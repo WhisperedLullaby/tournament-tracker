@@ -4,8 +4,6 @@
  * Keep this running and update a match in another terminal to see if it detects changes
  */
 
-/* eslint-disable no-console */
-
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

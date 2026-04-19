@@ -3,8 +3,6 @@
  * Run with: npx tsx src/lib/db/convert-csv-to-schedule.ts
  */
 
-/* eslint-disable no-console */
-
 import * as fs from "fs";
 import * as path from "path";
 

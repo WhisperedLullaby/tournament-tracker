@@ -84,6 +84,10 @@ export const tournaments = pgTable("tournaments", {
   bracketPlayDescription: text("bracket_play_description"), // Bracket play format details
   rulesDescription: text("rules_description"), // Tournament-specific rules
   prizeInfo: text("prize_info"), // Prize information
+  entryFee: integer("entry_fee"), // Registration fee in dollars (null = free)
+  paymentHandle: text("payment_handle"), // Venmo handle or payment instructions (null = pay in person)
+  startTime: text("start_time"), // "HH:MM" 24h format, e.g. "10:00"
+  estimatedEndTime: text("estimated_end_time"), // "HH:MM" 24h format, e.g. "14:00"
 
   registrationDeadline: timestamp("registration_deadline"),
   registrationOpenDate: timestamp("registration_open_date"),

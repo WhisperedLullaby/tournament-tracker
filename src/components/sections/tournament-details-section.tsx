@@ -6,18 +6,42 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+function formatTime(hhmm: string): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 || 12;
+  return `${hour}:${m.toString().padStart(2, "0")} ${period}`;
+}
+
+function formatDate(date: Date) {
+  return new Date(date).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 interface TournamentDetailsSectionProps {
   date: Date;
   location?: string | null;
   maxPods: number;
+  registrationOpenDate?: Date | null;
   registrationDeadline?: Date | null;
   prizeInfo?: string | null;
+  startTime?: string | null;
+  estimatedEndTime?: string | null;
 }
 
 export function TournamentDetailsSection({
   date,
   location,
   prizeInfo,
+  registrationOpenDate,
+  registrationDeadline,
+  startTime,
+  estimatedEndTime,
 }: TournamentDetailsSectionProps) {
   return (
     <section className="py-16 md:py-24">
@@ -35,16 +59,38 @@ export function TournamentDetailsSection({
                 Date & Time
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="font-medium">
-                {new Date(date).toLocaleDateString("en-US", {
-                  month: "long",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-              </p>
-              <p className="text-muted-foreground">10:00 AM - 2:00 PM</p>
-              <p className="text-muted-foreground text-sm">6 sets minimum.</p>
+            <CardContent className="space-y-3">
+              {/* Registration window */}
+              {(registrationOpenDate || registrationDeadline) && (
+                <div className="space-y-1">
+                  <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">Registration</p>
+                  {registrationOpenDate && (
+                    <p className="text-sm">
+                      <span className="text-muted-foreground">Opens:</span>{" "}
+                      {formatDate(registrationOpenDate)}
+                    </p>
+                  )}
+                  {registrationDeadline && (
+                    <p className="text-sm">
+                      <span className="text-muted-foreground">Closes:</span>{" "}
+                      {formatDate(registrationDeadline)}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Tournament day */}
+              <div className="space-y-1">
+                <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">Tournament Day</p>
+                <p className="font-medium">{formatDate(date)}</p>
+                {(startTime || estimatedEndTime) && (
+                  <p className="text-muted-foreground text-sm">
+                    {startTime ? formatTime(startTime) : ""}
+                    {startTime && estimatedEndTime ? " – " : ""}
+                    {estimatedEndTime ? formatTime(estimatedEndTime) : ""}
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -58,8 +104,6 @@ export function TournamentDetailsSection({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <p className="font-medium">All American FieldHouse</p>
-                <p className="text-muted-foreground text-sm">Champions Court</p>
                 <a
                   href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`}
                   target="_blank"
@@ -99,15 +143,9 @@ export function TournamentDetailsSection({
                   })}
                 </div>
               ) : (
-                <>
-                  <p className="font-medium">$20 Registration Fee</p>
-                  <p className="text-muted-foreground">
-                    Winning team gets their registration fee back!
-                  </p>
-                  <p className="text-muted-foreground text-sm">
-                    Play for free and bragging rights
-                  </p>
-                </>
+                <p className="text-muted-foreground text-sm">
+                  No prize information available.
+                </p>
               )}
             </CardContent>
           </Card>

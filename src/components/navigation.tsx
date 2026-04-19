@@ -94,9 +94,9 @@ export function Navigation() {
   const tournamentNavItems = isOnTournamentPage
     ? [
         { label: "Overview", href: `/tournaments/${tournamentSlug}` },
+        { label: "Scoreboard", href: `/tournaments/${tournamentSlug}/scoreboard` },
         { label: "Standings", href: `/tournaments/${tournamentSlug}/standings` },
         { label: "Schedule", href: `/tournaments/${tournamentSlug}/schedule` },
-        { label: "Teams", href: `/tournaments/${tournamentSlug}/standings` }, // Teams shows standings
         ...(userRole === "organizer"
           ? [{ label: "Scorekeeper", href: `/tournaments/${tournamentSlug}/scorekeeper` }]
           : []),

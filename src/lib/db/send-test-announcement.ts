@@ -3,8 +3,6 @@
  * Run with: npx tsx --env-file=.env.local src/lib/db/send-test-announcement.ts YOUR_EMAIL@example.com
  */
 
-/* eslint-disable no-console */
-
 import { config } from "dotenv";
 
 // Load environment variables from .env.local
@@ -34,13 +32,22 @@ async function sendTestAnnouncement() {
     const emailHtml = await render(
       TournamentAnnouncementEmail({
         player1: "[Player Name]",
+        tournamentName: "Test Tournament",
+        tournamentDate: new Date(),
+        slug: "test-tournament",
+        location: "Test Venue, City, State",
+        startTime: "10:00",
+        estimatedEndTime: "15:00",
+        poolPlayDescription: "4 rounds of pool play",
+        bracketPlayDescription: "Double elimination bracket",
+        prizeInfo: "Winners get bragging rights!",
       })
     );
 
     const result = await resend.emails.send({
-      from: "Hewwo Pwincess - Two Peas Pod Tournament <tournament@hewwopwincess.com>",
+      from: "Hewwo Pwincess - Tournament <tournament@hewwopwincess.com>",
       to: [testEmail],
-      subject: "🏐 TEST - Tournament Website Live + Important Reminders",
+      subject: "🏐 TEST - Tournament Website Live",
       html: emailHtml,
     });
 

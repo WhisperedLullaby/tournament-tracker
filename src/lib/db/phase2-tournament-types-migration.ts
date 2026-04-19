@@ -9,8 +9,6 @@
  * - Populates existing tournament with dynamic content
  */
 
-/* eslint-disable no-console */
-
 import { config } from "dotenv";
 
 // Load environment variables from .env.local

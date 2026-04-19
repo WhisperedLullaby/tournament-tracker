@@ -48,6 +48,17 @@ export function QuickActionsSubFooter({
 
           {tournamentStatus !== "upcoming" && (
             <Link
+              href={`/tournaments/${tournamentSlug}/scoreboard`}
+              className="p-6 bg-white/80 backdrop-blur-sm rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
+            >
+              <div className="text-3xl mb-2">🏐</div>
+              <h3 className="font-semibold">Scoreboard</h3>
+              <p className="text-sm text-gray-600 mt-1">Live scores</p>
+            </Link>
+          )}
+
+          {tournamentStatus !== "upcoming" && (
+            <Link
               href={`/tournaments/${tournamentSlug}/bracket`}
               className="p-6 bg-white/80 backdrop-blur-sm rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
             >

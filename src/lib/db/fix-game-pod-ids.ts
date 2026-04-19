@@ -3,8 +3,6 @@
  * Run with: npx tsx --env-file=.env.local src/lib/db/fix-game-pod-ids.ts
  */
 
-/* eslint-disable no-console */
-
 import { config } from "dotenv";
 
 // Load environment variables from .env.local

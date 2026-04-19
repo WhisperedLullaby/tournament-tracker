@@ -132,8 +132,11 @@ export default function TournamentPage() {
           date={tournament.date}
           location={tournament.location}
           maxPods={tournament.maxPods}
+          registrationOpenDate={tournament.registrationOpenDate}
           registrationDeadline={tournament.registrationDeadline}
           prizeInfo={tournament.prizeInfo}
+          startTime={tournament.startTime}
+          estimatedEndTime={tournament.estimatedEndTime}
         />
       </RevealSection>
 

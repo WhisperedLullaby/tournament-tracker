@@ -61,7 +61,6 @@ export async function ensureUniqueSlug(
     let slug = baseSlug;
     let counter = 2;
 
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       // Check if slug exists
       const conditions = [eq(tournaments.slug, slug)];
