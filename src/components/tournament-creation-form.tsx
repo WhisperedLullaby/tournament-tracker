@@ -49,6 +49,14 @@ type FormData = {
   rulesDescription: string;
   prizeInfo: string;
 
+  // Payment
+  entryFee: number | null;
+  paymentHandle: string;
+
+  // Times
+  startTime: string;
+  estimatedEndTime: string;
+
   // Registration & Visibility
   registrationDeadline: string;
   registrationOpenDate: string;
@@ -86,6 +94,14 @@ export function TournamentCreationForm() {
     bracketPlayDescription: "",
     rulesDescription: "",
     prizeInfo: "",
+
+    // Payment
+    entryFee: null,
+    paymentHandle: "",
+
+    // Times
+    startTime: "",
+    estimatedEndTime: "",
 
     // Registration & Visibility
     registrationDeadline: "",
@@ -467,6 +483,33 @@ export function TournamentCreationForm() {
                 </p>
               )}
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="startTime">Start Time</Label>
+                <Input
+                  id="startTime"
+                  type="time"
+                  value={formData.startTime}
+                  onChange={(e) => updateField("startTime", e.target.value)}
+                />
+                <p className="text-muted-foreground mt-1 text-xs">
+                  When games begin
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="estimatedEndTime">Estimated End Time</Label>
+                <Input
+                  id="estimatedEndTime"
+                  type="time"
+                  value={formData.estimatedEndTime}
+                  onChange={(e) => updateField("estimatedEndTime", e.target.value)}
+                />
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Based on court booking
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Registration Settings */}
@@ -565,6 +608,45 @@ export function TournamentCreationForm() {
               />
               <p className="text-muted-foreground mt-1 text-xs">
                 Describe registration fees and prizes. Use **Bold** text with **Header** for emphasis (optional).
+              </p>
+            </div>
+          </div>
+
+          {/* Payment & Fees */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Payment & Fees</h3>
+            <p className="text-muted-foreground text-sm">
+              Configure how participants pay their registration fee. If left blank, registrants will be told to pay the organizer in person.
+            </p>
+
+            <div>
+              <Label htmlFor="entryFee">Entry Fee (USD)</Label>
+              <Input
+                id="entryFee"
+                type="number"
+                min="0"
+                placeholder="e.g., 25"
+                value={formData.entryFee ?? ""}
+                onChange={(e) =>
+                  updateField("entryFee", e.target.value ? parseInt(e.target.value) : null)
+                }
+              />
+              <p className="text-muted-foreground mt-1 text-xs">
+                Leave blank for free entry
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="paymentHandle">Payment Handle / Instructions</Label>
+              <Input
+                id="paymentHandle"
+                type="text"
+                placeholder="e.g., @venmo-handle or Cash at the door"
+                value={formData.paymentHandle}
+                onChange={(e) => updateField("paymentHandle", e.target.value)}
+              />
+              <p className="text-muted-foreground mt-1 text-xs">
+                Venmo handle (e.g. @username) or payment instructions. Leave blank to prompt players to pay in person.
               </p>
             </div>
           </div>

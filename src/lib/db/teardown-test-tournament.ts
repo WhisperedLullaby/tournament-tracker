@@ -5,8 +5,6 @@
  *   npm run test:teardown -- --slug=test-202603191045
  */
 
-/* eslint-disable no-console */
-
 import { config } from "dotenv";
 config({ path: ".env.local" });
 

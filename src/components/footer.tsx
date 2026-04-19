@@ -5,11 +5,9 @@ export function Footer() {
         <div className="grid gap-8 md:grid-cols-3">
           {/* Tournament Info */}
           <div>
-            <h3 className="text-primary mb-2 font-semibold">
-              Two Peas Pod Tournament
-            </h3>
+            <h3 className="text-primary mb-2 font-semibold">Hewwo Pwincess</h3>
             <p className="text-muted-foreground text-sm">
-              A reverse coed volleyball tournament
+              Tournament Hub for you, Pwincess
             </p>
           </div>
 
@@ -17,7 +15,7 @@ export function Footer() {
           <div>
             <h3 className="text-primary mb-2 font-semibold">Contact</h3>
             <p className="text-muted-foreground text-sm">
-              Questions? Reach out to the tournament organizers
+              agnone.anthony@gmail.com
             </p>
           </div>
 

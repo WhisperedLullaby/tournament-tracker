@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Hewwo Pwincess",
-  description: "A reverse coed volleyball tournament",
+  description: "Tournament hub for you, Pwincess",
 };
 
 export default function RootLayout({

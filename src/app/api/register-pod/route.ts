@@ -8,6 +8,13 @@ import { createClient } from "@/lib/auth/server";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+function formatTime(hhmm: string): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 || 12;
+  return `${hour}:${m.toString().padStart(2, "0")} ${period}`;
+}
+
 interface RegistrationData {
   tournamentId: number;
   email: string;
@@ -160,12 +167,26 @@ export async function POST(request: NextRequest) {
       .returning();
 
     // Create participant role for user in this tournament (only for authenticated users)
+    // Skip if user already has any role (e.g. organizer registering as participant)
     if (user) {
-      await db.insert(tournamentRoles).values({
-        userId: user.id,
-        tournamentId,
-        role: "participant",
-      });
+      const existingRole = await db
+        .select()
+        .from(tournamentRoles)
+        .where(
+          and(
+            eq(tournamentRoles.userId, user.id),
+            eq(tournamentRoles.tournamentId, tournamentId)
+          )
+        )
+        .limit(1);
+
+      if (existingRole.length === 0) {
+        await db.insert(tournamentRoles).values({
+          userId: user.id,
+          tournamentId,
+          role: "participant",
+        });
+      }
     }
 
     // Send confirmation email
@@ -179,7 +200,8 @@ export async function POST(request: NextRequest) {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
-        day: 'numeric'
+        day: 'numeric',
+        timeZone: 'UTC',
       });
 
       const emailHtml = `
@@ -220,6 +242,7 @@ export async function POST(request: NextRequest) {
                 <h2 style="font-size: 20px; color: #727D73; margin-top: 30px; margin-bottom: 15px;">Tournament Details</h2>
                 <div style="font-size: 15px; line-height: 1.8;">
                   <p style="margin: 8px 0;"><strong>📅 Date:</strong> ${formattedDate}</p>
+                  ${tournament.startTime ? `<p style="margin: 8px 0;"><strong>🕐 Time:</strong> ${formatTime(tournament.startTime)}${tournament.estimatedEndTime ? ` – ${formatTime(tournament.estimatedEndTime)}` : ''}</p>` : ''}
                   <p style="margin: 8px 0;">
                     <strong>📍 Location:</strong> ${tournament.location || 'TBD'}
                   </p>

@@ -10,8 +10,6 @@
  * - Migrates existing tournament data
  */
 
-/* eslint-disable no-console */
-
 import { config } from "dotenv";
 
 // Load environment variables from .env.local

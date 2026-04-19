@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { getAllTournaments, getPodCount } from "@/lib/db/queries";
 import Link from "next/link";
 import { createClient } from "@/lib/auth/server";
@@ -35,9 +36,9 @@ async function TournamentGrid({
 
   if (tournamentData.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
+      <div className="py-12 text-center text-gray-500">
         <p className="text-lg">No tournaments found.</p>
-        <p className="text-sm mt-2">
+        <p className="mt-2 text-sm">
           {statusFilter
             ? `No ${statusFilter} tournaments at this time.`
             : "Check back soon!"}
@@ -70,21 +71,34 @@ export default async function TournamentsPage({
     ? await Promise.all([isWhitelistedOrganizer(user.id), isAdminUser(user.id)])
     : [false, false];
 
+  // Smart default: redirect to the most relevant status tab
+  if (!statusFilter) {
+    const baseFilter = { isPublic: true, includeTest: isAdmin };
+    const [upcoming, active] = await Promise.all([
+      getAllTournaments({ ...baseFilter, status: "upcoming" }),
+      getAllTournaments({ ...baseFilter, status: "active" }),
+    ]);
+    if (upcoming.length > 0) redirect("/tournaments?status=upcoming");
+    else if (active.length > 0) redirect("/tournaments?status=active");
+    else redirect("/tournaments?status=completed");
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <Navigation />
 
       {/* Page Header */}
-      <div className="border-b bg-gradient-to-br from-primary/10 via-background to-accent/10">
+      <div className="from-primary/10 via-background to-accent/10 border-b bg-gradient-to-br">
         <div className="container mx-auto px-4 py-12 md:py-16">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <div className="flex items-center gap-3 mb-3">
-                <Trophy className="h-8 w-8 text-primary" />
+              <div className="mb-3 flex items-center gap-3">
+                <Trophy className="text-primary h-8 w-8" />
                 <h1 className="text-4xl font-bold md:text-5xl">Tournaments</h1>
               </div>
               <p className="text-muted-foreground text-lg">
-                Browse and join volleyball tournaments in your area
+                Hewwo Pwincess, these are all the past, preset and future
+                tournaments
               </p>
             </div>
             {canCreateTournaments && (
@@ -102,43 +116,43 @@ export default async function TournamentsPage({
       {/* Content */}
       <div className="container mx-auto px-4 py-8">
         {/* Filter Tabs */}
-        <div className="flex gap-2 mb-8 border-b">
+        <div className="mb-8 flex gap-2 border-b">
           <Link
             href="/tournaments"
-            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+            className={`border-b-2 px-4 py-2 font-medium transition-colors ${
               !statusFilter
                 ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                : "text-muted-foreground hover:text-foreground border-transparent"
             }`}
           >
             All
           </Link>
           <Link
             href="/tournaments?status=upcoming"
-            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+            className={`border-b-2 px-4 py-2 font-medium transition-colors ${
               statusFilter === "upcoming"
                 ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                : "text-muted-foreground hover:text-foreground border-transparent"
             }`}
           >
             Upcoming
           </Link>
           <Link
             href="/tournaments?status=active"
-            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+            className={`border-b-2 px-4 py-2 font-medium transition-colors ${
               statusFilter === "active"
                 ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                : "text-muted-foreground hover:text-foreground border-transparent"
             }`}
           >
             Active
           </Link>
           <Link
             href="/tournaments?status=completed"
-            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+            className={`border-b-2 px-4 py-2 font-medium transition-colors ${
               statusFilter === "completed"
                 ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                : "text-muted-foreground hover:text-foreground border-transparent"
             }`}
           >
             Completed

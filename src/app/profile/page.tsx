@@ -79,6 +79,7 @@ function TournamentCard({ entry }: { entry: TournamentHistoryEntry }) {
             year: "numeric",
             month: "long",
             day: "numeric",
+            timeZone: "UTC",
           })}
         </div>
         {tournament.location && (

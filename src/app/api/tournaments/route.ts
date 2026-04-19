@@ -31,6 +31,14 @@ interface TournamentData {
   rulesDescription: string;
   prizeInfo: string;
 
+  // Payment
+  entryFee: number | null;
+  paymentHandle: string;
+
+  // Times
+  startTime: string;
+  estimatedEndTime: string;
+
   // Registration & Visibility
   registrationDeadline: string;
   registrationOpenDate: string;
@@ -85,6 +93,10 @@ export async function POST(request: NextRequest) {
       bracketPlayDescription,
       rulesDescription,
       prizeInfo,
+      entryFee,
+      paymentHandle,
+      startTime,
+      estimatedEndTime,
       registrationDeadline,
       registrationOpenDate,
       isPublic,
@@ -159,6 +171,10 @@ export async function POST(request: NextRequest) {
         bracketPlayDescription: bracketPlayDescription || null,
         rulesDescription: rulesDescription || null,
         prizeInfo: prizeInfo || null,
+        entryFee: entryFee ?? null,
+        paymentHandle: paymentHandle || null,
+        startTime: startTime || null,
+        estimatedEndTime: estimatedEndTime || null,
 
         // Registration & Visibility
         registrationDeadline: registrationDeadline

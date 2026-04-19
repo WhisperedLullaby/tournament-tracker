@@ -23,6 +23,12 @@ const eslintConfig = [
       "@typescript-eslint/no-non-null-assertion": "warn",
     },
   },
+  {
+    files: ["src/lib/db/**/*.ts"],
+    rules: {
+      "no-console": "off",
+    },
+  },
 ];
 
 export default eslintConfig;

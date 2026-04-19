@@ -84,6 +84,7 @@ export function TournamentCardGrid({ data }: TournamentCardGridProps) {
                 year: "numeric",
                 month: "long",
                 day: "numeric",
+                timeZone: "UTC",
               })}
             </p>
 

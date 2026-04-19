@@ -3,8 +3,6 @@
  * Run with: npx tsx --env-file=.env.local src/lib/db/reset-bracket.ts
  */
 
-/* eslint-disable no-console */
-
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
