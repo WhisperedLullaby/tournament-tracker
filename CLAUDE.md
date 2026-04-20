@@ -126,7 +126,7 @@ src/app/
 - **Organizer** — in `organizer_whitelist` (`is_admin = false`). Can create tournaments.
 - **Admin** — in `organizer_whitelist` with `is_admin = true`. Superset of organizer; also sees test tournaments. Set via direct SQL update.
 
-**Test tournaments:** Set `is_test = true` on a tournament row to hide it from everyone except admins. Defaults to `false` so all existing tournaments are unaffected.
+**Test tournaments:** Set `is_test = true` on a tournament row to hide it from everyone except admins. Defaults to `false` so all existing tournaments are unaffected. The create tournament form includes an admin-only "Test tournament" checkbox (amber-styled, only rendered when `isAdmin=true` is passed as a prop). Server-side: `POST /api/tournaments` ignores `isTest: true` from non-admins. `isAdmin` status is determined by `isAdminUser()` from `src/lib/db/queries.ts`.
 
 > **Nav behavior:** `navigation.tsx` uses `useAuth()` — do not manage auth state independently in this component. Shows a Sign In button when `!isLoading && !user`. "Create Tournament" appears in the mobile drawer only for whitelisted organizers (`isWhitelisted = true` from `/api/user/whitelist`). The create page also enforces whitelist authorization server-side and redirects unauthorized users to `/tournaments?error=not_authorized`.
 
@@ -225,6 +225,32 @@ Vertical and horizontal divider lines use a CSS `linear-gradient` background (tr
 
 ---
 
+## Scripts
+
+### `scripts/generate-pool-schedule.ts`
+Generates a pool play schedule for a tournament and writes it directly to the `pool_matches` table. Used for CLI / one-off generation.
+
+```bash
+npx tsx --env-file=.env.local scripts/generate-pool-schedule.ts <slug> [--force]
+```
+
+- `<slug>` — tournament slug (e.g. `two-peas-dec-2025`)
+- `--force` — delete existing pool matches before generating (required if matches already exist)
+- Works for any pod count (6–15+) and all tournament types (`pod_2`, `pod_3`, `set_teams`)
+- Pods must already be registered before running this script
+- Algorithm: greedy variety-first selection + exhaustive partition scoring; hard "no 3 consecutive games" constraint; minimizes teammate/opponent repeats
+
+**The same algorithm is also exposed via `POST /api/tournaments/[tournamentId]/generate-schedule`**, which the Tournament Settings page uses. Organizer-auth required. Body: `{ targetGames?, minutesPerGame?, force? }`. Returns `{ gamesCreated, podsCount, clearedExisting }` or a descriptive error. A `GET` to that endpoint returns `{ existingCount }` for the current match count.
+
+### `scripts/delete-test-tournaments.sql`
+Deletes all `is_test = true` tournaments and their cascade-linked child records.
+
+```bash
+# Run via Supabase MCP or paste into Supabase SQL editor
+```
+
+---
+
 ## Development Workflow
 
 ### Commands
@@ -288,6 +314,8 @@ RESEND_API_KEY                    # Email service
 
 ## Future Features (Backlog)
 
+- **TODO: Playwright E2E — "Run a Tournament" test** — parameterized by test tournament slug. Flow: (1) hit the Settings page → Generate Schedule → verify games appear on the Schedule page; (2) open the Scorekeeper and simulate completing every pool play game one by one; (3) after each game, verify the Standings page reflects correct W/L/point differential. Should use a dedicated `is_test = true` tournament so it can be reset between runs.
+- **TODO: Auto-generate pool play schedule on tournament creation** — the schedule generator is now available via `POST /api/tournaments/[tournamentId]/generate-schedule` (UI in Settings). Could trigger automatically on creation or when registration closes.
 - User profiles with tournament history
 - Email notifications / announcements pipeline (Resend partially wired)
 - Payment integration for registration
@@ -296,4 +324,3 @@ RESEND_API_KEY                    # Email service
 - SPR rating system (like Scoreholio)
 - "Power up" tournament mode (experimental idea)
 - Tournament templates (duplicate structure)
-- Playwright / Vitest test suite

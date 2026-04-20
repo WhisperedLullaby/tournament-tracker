@@ -46,6 +46,9 @@ export function TournamentSettingsForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [scheduleResult, setScheduleResult] = useState<{ success?: string; error?: string } | null>(null);
+  const [scheduleOptions, setScheduleOptions] = useState({ targetGames: 4, minutesPerGame: 20, force: false });
   const [formData, setFormData] = useState<FormData>({
     name: tournament.name,
     date: tournament.date.toISOString().split("T")[0],
@@ -91,6 +94,29 @@ export function TournamentSettingsForm({
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const handleGenerateSchedule = async () => {
+    setIsGenerating(true);
+    setScheduleResult(null);
+    try {
+      const response = await fetch(`/api/tournaments/${tournament.id}/generate-schedule`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(scheduleOptions),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setScheduleResult({ error: data.error || "Failed to generate schedule" });
+      } else {
+        const cleared = data.clearedExisting > 0 ? ` (replaced ${data.clearedExisting} existing)` : "";
+        setScheduleResult({ success: `Generated ${data.gamesCreated} games for ${data.podsCount} pods${cleared}.` });
+      }
+    } catch {
+      setScheduleResult({ error: "An unexpected error occurred." });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -408,6 +434,68 @@ export function TournamentSettingsForm({
             </Button>
           </div>
         </form>
+
+        {/* Generate Schedule */}
+        <div className="mt-8 pt-8 border-t">
+          <h3 className="text-lg font-semibold mb-2">Pool Play Schedule</h3>
+          <p className="text-muted-foreground text-sm mb-4">
+            Generate the pool play schedule once all pods have registered. Run this again with &quot;Force overwrite&quot; to regenerate.
+          </p>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <Label htmlFor="targetGames">Games per pod</Label>
+              <Input
+                id="targetGames"
+                type="number"
+                min="1"
+                max="20"
+                value={scheduleOptions.targetGames}
+                onChange={(e) => setScheduleOptions((o) => ({ ...o, targetGames: parseInt(e.target.value) || 4 }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="minutesPerGame">Minutes per game</Label>
+              <Input
+                id="minutesPerGame"
+                type="number"
+                min="5"
+                max="120"
+                value={scheduleOptions.minutesPerGame}
+                onChange={(e) => setScheduleOptions((o) => ({ ...o, minutesPerGame: parseInt(e.target.value) || 20 }))}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 mb-4">
+            <input
+              type="checkbox"
+              id="forceOverwrite"
+              checked={scheduleOptions.force}
+              onChange={(e) => setScheduleOptions((o) => ({ ...o, force: e.target.checked }))}
+              className="h-4 w-4"
+            />
+            <Label htmlFor="forceOverwrite" className="font-normal">
+              Force overwrite (clears existing games)
+            </Label>
+          </div>
+
+          {scheduleResult?.success && (
+            <p className="text-sm text-green-600 mb-3">{scheduleResult.success}</p>
+          )}
+          {scheduleResult?.error && (
+            <p className="text-sm text-destructive mb-3">{scheduleResult.error}</p>
+          )}
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleGenerateSchedule}
+            disabled={isGenerating}
+          >
+            {isGenerating ? "Generating..." : "Generate Schedule"}
+          </Button>
+        </div>
 
         {/* Danger Zone */}
         <div className="mt-8 pt-8 border-t border-destructive/30">
