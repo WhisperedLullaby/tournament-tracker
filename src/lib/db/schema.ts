@@ -219,6 +219,147 @@ export const organizerWhitelist = pgTable("organizer_whitelist", {
   isAdmin: boolean("is_admin").default(false).notNull(),
 });
 
+// ─── Pickup Games ─────────────────────────────────────────────────────────────
+
+export const pickupStatusEnum = pgEnum("pickup_status", [
+  "upcoming",
+  "attendance",
+  "active",
+  "completed",
+]);
+
+export const pickupRegistrationStatusEnum = pgEnum(
+  "pickup_registration_status",
+  ["registered", "waitlisted", "attended", "no_show"]
+);
+
+export const volleyballPositionEnum = pgEnum("volleyball_position", [
+  "setter",
+  "outside_hitter",
+  "middle_blocker",
+  "opposite",
+  "libero",
+  "defensive_specialist",
+]);
+
+export const pickupSeriesFormatEnum = pgEnum("pickup_series_format", [
+  "best_of_3",
+  "best_of_5",
+]);
+
+export const pickupSessions = pgTable("pickup_sessions", {
+  id: serial("id").primaryKey(),
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  date: timestamp("date").notNull(),
+  startTime: text("start_time"),
+  estimatedEndTime: text("estimated_end_time"),
+  location: text("location"),
+  description: text("description"),
+  status: pickupStatusEnum("status").default("upcoming").notNull(),
+  totalCapacity: integer("total_capacity").notNull(),
+  seriesFormat: pickupSeriesFormatEnum("series_format")
+    .default("best_of_3")
+    .notNull(),
+  positionLimits: json("position_limits")
+    .$type<Record<string, number>>()
+    .notNull(),
+  scoringRules: json("scoring_rules").$type<{
+    endPoints: number;
+    cap: number;
+    winByTwo: boolean;
+  }>().notNull(),
+  currentSeriesNumber: integer("current_series_number").default(0).notNull(),
+  isTest: boolean("is_test").default(false).notNull(),
+  createdBy: text("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const pickupRegistrations = pgTable(
+  "pickup_registrations",
+  {
+    id: serial("id").primaryKey(),
+    sessionId: integer("session_id")
+      .notNull()
+      .references(() => pickupSessions.id, { onDelete: "cascade" }),
+    userId: text("user_id"), // null for guests
+    email: text("email").notNull(),
+    displayName: text("display_name").notNull(),
+    position: volleyballPositionEnum("position").notNull(),
+    status: pickupRegistrationStatusEnum("status")
+      .default("registered")
+      .notNull(),
+    waitlistPosition: integer("waitlist_position"), // null = confirmed spot; 1 = first in line
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    // One registration per authenticated user per session
+    uniqueUserSession: unique("unique_user_pickup_session").on(
+      table.userId,
+      table.sessionId
+    ),
+  })
+);
+
+export const pickupSeries = pgTable("pickup_series", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id")
+    .notNull()
+    .references(() => pickupSessions.id, { onDelete: "cascade" }),
+  seriesNumber: integer("series_number").notNull(),
+  status: matchStatusEnum("status").default("pending").notNull(),
+  teamAPlayerIds: json("team_a_player_ids").$type<number[]>().notNull(),
+  teamBPlayerIds: json("team_b_player_ids").$type<number[]>().notNull(),
+  benchPlayerIds: json("bench_player_ids").$type<number[]>().notNull(),
+  teamASeriesWins: integer("team_a_series_wins").default(0).notNull(),
+  teamBSeriesWins: integer("team_b_series_wins").default(0).notNull(),
+  winningSide: text("winning_side"), // "A" | "B" | null
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const pickupGames = pgTable("pickup_games", {
+  id: serial("id").primaryKey(),
+  seriesId: integer("series_id")
+    .notNull()
+    .references(() => pickupSeries.id, { onDelete: "cascade" }),
+  sessionId: integer("session_id")
+    .notNull()
+    .references(() => pickupSessions.id, { onDelete: "cascade" }),
+  gameNumber: integer("game_number").notNull(),
+  teamAScore: integer("team_a_score").default(0).notNull(),
+  teamBScore: integer("team_b_score").default(0).notNull(),
+  status: matchStatusEnum("status").default("pending").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const pickupPlayerStats = pgTable(
+  "pickup_player_stats",
+  {
+    id: serial("id").primaryKey(),
+    sessionId: integer("session_id")
+      .notNull()
+      .references(() => pickupSessions.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    position: volleyballPositionEnum("position").notNull(),
+    seriesWins: integer("series_wins").default(0).notNull(),
+    seriesLosses: integer("series_losses").default(0).notNull(),
+    pointsFor: integer("points_for").default(0).notNull(),
+    pointsAgainst: integer("points_against").default(0).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    uniquePlayerSession: unique("unique_player_pickup_stats").on(
+      table.userId,
+      table.sessionId
+    ),
+  })
+);
+
 // Type exports for use in the application
 export type Tournament = typeof tournaments.$inferSelect;
 export type NewTournament = typeof tournaments.$inferInsert;
@@ -243,3 +384,18 @@ export type NewTournamentRole = typeof tournamentRoles.$inferInsert;
 
 export type OrganizerWhitelist = typeof organizerWhitelist.$inferSelect;
 export type NewOrganizerWhitelist = typeof organizerWhitelist.$inferInsert;
+
+export type PickupSession = typeof pickupSessions.$inferSelect;
+export type NewPickupSession = typeof pickupSessions.$inferInsert;
+
+export type PickupRegistration = typeof pickupRegistrations.$inferSelect;
+export type NewPickupRegistration = typeof pickupRegistrations.$inferInsert;
+
+export type PickupSeries = typeof pickupSeries.$inferSelect;
+export type NewPickupSeries = typeof pickupSeries.$inferInsert;
+
+export type PickupGame = typeof pickupGames.$inferSelect;
+export type NewPickupGame = typeof pickupGames.$inferInsert;
+
+export type PickupPlayerStats = typeof pickupPlayerStats.$inferSelect;
+export type NewPickupPlayerStats = typeof pickupPlayerStats.$inferInsert;
