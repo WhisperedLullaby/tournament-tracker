@@ -2,12 +2,14 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/auth/server";
 import { getUserTournamentStats } from "@/lib/db/queries";
+import { getUserPickupStats } from "@/lib/db/pickup-queries";
 import type { TournamentHistoryEntry } from "@/lib/db/queries";
 import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
 import { Badge } from "@/components/ui/badge";
 import { TournamentStatusBadge } from "@/components/status-badges";
-import { User, Trophy, Calendar, MapPin, Users } from "lucide-react";
+import { formatPosition } from "@/lib/pickup/positions";
+import { User, Trophy, Calendar, MapPin, Users, Zap } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -159,6 +161,94 @@ function StatsBanner({
   );
 }
 
+// ─── Pickup Stats Banner ──────────────────────────────────────────────────────
+
+function PickupStatsBanner({
+  aggregates,
+}: {
+  aggregates: {
+    sessionsPlayed: number;
+    totalSeriesWins: number;
+    totalSeriesLosses: number;
+    winPercentage: number;
+    primaryPosition: string | null;
+  };
+}) {
+  const { sessionsPlayed, totalSeriesWins, totalSeriesLosses, winPercentage, primaryPosition } = aggregates;
+  const hasStats = totalSeriesWins + totalSeriesLosses > 0;
+
+  const tiles = [
+    { label: "Sessions", value: sessionsPlayed },
+    { label: "Series Wins", value: hasStats ? totalSeriesWins : "—" },
+    { label: "Series Losses", value: hasStats ? totalSeriesLosses : "—" },
+    { label: "Win %", value: hasStats ? `${winPercentage}%` : "—" },
+  ];
+
+  return (
+    <div className="space-y-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {tiles.map((tile) => (
+          <div
+            key={tile.label}
+            className="rounded-lg border bg-card p-4 text-center shadow-sm"
+          >
+            <div className="text-2xl font-bold text-primary">{tile.value}</div>
+            <div className="text-xs text-muted-foreground mt-1">{tile.label}</div>
+          </div>
+        ))}
+      </div>
+      {primaryPosition && (
+        <p className="text-sm text-muted-foreground">
+          Primary position: <span className="font-medium text-foreground">{formatPosition(primaryPosition)}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ─── Pickup Session Card ──────────────────────────────────────────────────────
+
+type PickupSessionRow = {
+  session: { id: number; slug: string; title: string; date: Date };
+  position: string;
+  seriesWins: number;
+  seriesLosses: number;
+};
+
+function PickupSessionCard({ row }: { row: PickupSessionRow }) {
+  const { session, position, seriesWins, seriesLosses } = row;
+  return (
+    <div className="rounded-lg border bg-card p-5 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <Link
+          href={`/pickup/${session.slug}`}
+          className="text-base font-semibold hover:text-primary transition-colors leading-tight"
+        >
+          {session.title}
+        </Link>
+        <Badge variant="secondary" className="font-mono shrink-0">
+          {seriesWins}W – {seriesLosses}L
+        </Badge>
+      </div>
+      <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          <Calendar className="h-3.5 w-3.5" />
+          {session.date.toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Users className="h-3.5 w-3.5" />
+          {formatPosition(position)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function ProfilePage() {
@@ -171,7 +261,10 @@ export default async function ProfilePage() {
     redirect("/auth/signin");
   }
 
-  const stats = await getUserTournamentStats(user.id);
+  const [stats, pickupStats] = await Promise.all([
+    getUserTournamentStats(user.id),
+    getUserPickupStats(user.id),
+  ]);
 
   const displayName =
     (user.user_metadata?.name as string | undefined) ?? user.email ?? "Player";
@@ -219,6 +312,7 @@ export default async function ProfilePage() {
 
       {/* Content */}
       <main className="container mx-auto px-4 py-8 flex-1">
+        {/* Tournament Stats */}
         <StatsBanner aggregates={stats.aggregates} />
 
         {/* Upcoming / Active */}
@@ -236,9 +330,9 @@ export default async function ProfilePage() {
           </section>
         )}
 
-        {/* Past */}
+        {/* Past Tournaments */}
         {past.length > 0 ? (
-          <section>
+          <section className="mb-10">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <Calendar className="h-5 w-5 text-primary" />
               Tournament History
@@ -250,18 +344,38 @@ export default async function ProfilePage() {
             </div>
           </section>
         ) : (
-          upcoming.length === 0 && (
+          upcoming.length === 0 && pickupStats.sessions.length === 0 && (
             <div className="text-center py-16 text-muted-foreground">
               <User className="h-12 w-12 mx-auto mb-4 opacity-30" />
-              <p className="text-lg font-medium">No tournaments yet</p>
+              <p className="text-lg font-medium">No activity yet</p>
               <p className="text-sm mt-1">
                 <Link href="/tournaments" className="text-primary hover:underline">
                   Browse tournaments
+                </Link>{" "}
+                or{" "}
+                <Link href="/pickup" className="text-primary hover:underline">
+                  join a pickup session
                 </Link>{" "}
                 to get started.
               </p>
             </div>
           )
+        )}
+
+        {/* Pickup Game History */}
+        {pickupStats.sessions.length > 0 && (
+          <section>
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <Zap className="h-5 w-5 text-primary" />
+              Pickup Game History
+            </h2>
+            <PickupStatsBanner aggregates={pickupStats.aggregates} />
+            <div className="grid gap-4 md:grid-cols-2">
+              {pickupStats.sessions.map((row) => (
+                <PickupSessionCard key={row.session.id} row={row} />
+              ))}
+            </div>
+          </section>
         )}
       </main>
 

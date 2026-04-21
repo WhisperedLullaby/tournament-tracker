@@ -35,6 +35,10 @@ export function Navigation() {
   const tournamentSlug = pathname?.match(/^\/tournaments\/([^/]+)/)?.[1];
   const isOnTournamentPage = !!tournamentSlug && tournamentSlug !== "create";
 
+  // Extract pickup slug from pathname if on a pickup session page
+  const pickupSlug = pathname?.match(/^\/pickup\/([^/]+)/)?.[1];
+  const isOnPickupPage = !!pickupSlug && pickupSlug !== "create";
+
   useEffect(() => {
     if (!user) {
       setIsWhitelisted(false);
@@ -88,6 +92,7 @@ export function Navigation() {
   const baseNavItems = [
     { label: "Home", href: "/" },
     { label: "Tournaments", href: "/tournaments" },
+    { label: "Pickup", href: "/pickup" },
   ];
 
   // Tournament-specific navigation items
@@ -103,7 +108,20 @@ export function Navigation() {
       ]
     : [];
 
-  const navItems = isOnTournamentPage ? tournamentNavItems : baseNavItems;
+  // Pickup-specific navigation items
+  const pickupNavItems = isOnPickupPage
+    ? [
+        { label: "Session", href: `/pickup/${pickupSlug}` },
+        { label: "Scoreboard", href: `/pickup/${pickupSlug}/scoreboard` },
+        { label: "Lineups", href: `/pickup/${pickupSlug}/lineups` },
+      ]
+    : [];
+
+  const navItems = isOnTournamentPage
+    ? tournamentNavItems
+    : isOnPickupPage
+      ? pickupNavItems
+      : baseNavItems;
 
   return (
     <nav className="bg-card supports-backdrop-filter:bg-card/90 sticky top-0 z-50 w-full border-b backdrop-blur">
@@ -214,19 +232,33 @@ export function Navigation() {
                       >
                         My Profile
                       </Link>
-                      {isWhitelisted && !isOnTournamentPage && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          asChild
-                          className="w-full justify-start"
-                          onClick={() => setIsMenuOpen(false)}
-                        >
-                          <Link href="/tournaments/create">
-                            <Plus className="mr-2 h-4 w-4" />
-                            Create Tournament
-                          </Link>
-                        </Button>
+                      {isWhitelisted && !isOnTournamentPage && !isOnPickupPage && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="w-full justify-start"
+                            onClick={() => setIsMenuOpen(false)}
+                          >
+                            <Link href="/tournaments/create">
+                              <Plus className="mr-2 h-4 w-4" />
+                              Create Tournament
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="w-full justify-start"
+                            onClick={() => setIsMenuOpen(false)}
+                          >
+                            <Link href="/pickup/create">
+                              <Plus className="mr-2 h-4 w-4" />
+                              Create Pickup Session
+                            </Link>
+                          </Button>
+                        </>
                       )}
                       <Button
                         variant="outline"
