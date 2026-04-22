@@ -8,7 +8,7 @@ import { SortableTable, ColumnDef } from "@/components/sortable-table";
 import { GameLog } from "@/components/game-log";
 import { BracketStandings } from "@/components/bracket-standings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrendingUp, ChevronDown, ChevronRight } from "lucide-react";
+import { TrendingUp, TrendingDown, ChevronDown, ChevronRight } from "lucide-react";
 import type { BracketMatch, BracketTeam } from "@/lib/db/schema";
 
 type StandingsData = {
@@ -121,7 +121,7 @@ export function StandingsPageClient({
       key: "wins",
       label: "W",
       headerClassName: "text-center",
-      className: "text-center font-medium text-green-600 dark:text-green-400",
+      className: "text-center font-medium text-success",
     },
     {
       key: "losses",
@@ -150,13 +150,14 @@ export function StandingsPageClient({
           <div
             className={`flex items-center justify-center gap-1 font-bold ${
               diff > 0
-                ? "text-green-600 dark:text-green-400"
+                ? "text-primary"
                 : diff < 0
-                  ? "text-red-600 dark:text-red-400"
+                  ? "text-muted-foreground"
                   : "text-muted-foreground"
             }`}
           >
             {diff > 0 && <TrendingUp className="h-4 w-4" />}
+            {diff < 0 && <TrendingDown className="h-4 w-4" />}
             {diff > 0 ? "+" : ""}
             {diff}
           </div>

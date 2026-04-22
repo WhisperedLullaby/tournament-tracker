@@ -149,24 +149,30 @@ export function SortableTable<T extends Record<string, unknown>>({
                 </TableCell>
               </TableRow>
             ) : (
-              sortedData.map((row, index) => (
-                <TableRow key={index}>
-                  {columns.map((column) => (
-                    <TableCell
-                      key={column.key}
-                      className={`${column.className || ""} ${
-                        column.sticky
-                          ? "sticky left-0 z-10 bg-card shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"
-                          : ""
-                      }`}
-                    >
-                      {column.render
-                        ? column.render(row[column.key], row, index)
-                        : (row[column.key] as React.ReactNode)}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              sortedData.map((row, index) => {
+                const rowBg = index % 2 === 1 ? "bg-muted/30" : "bg-card";
+                return (
+                  <TableRow
+                    key={index}
+                    className={`${rowBg} border-b border-border/60`}
+                  >
+                    {columns.map((column) => (
+                      <TableCell
+                        key={column.key}
+                        className={`${column.className || ""} ${
+                          column.sticky
+                            ? `sticky left-0 z-10 ${rowBg} shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]`
+                            : ""
+                        }`}
+                      >
+                        {column.render
+                          ? column.render(row[column.key], row, index)
+                          : (row[column.key] as React.ReactNode)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

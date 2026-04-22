@@ -25,6 +25,10 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -69,6 +73,15 @@
   --accent: #aab99a; /* Medium sage green */
   --accent-foreground: #4a5651;
   --destructive: oklch(0.577 0.245 27.325);
+  /* Semantic W/L tokens. WCAG AA validated (>=4.5:1 normal text).
+     success 4.90:1 vs --background, 5.67:1 vs --card.
+     danger  5.20:1 vs --background, 6.02:1 vs --card.
+     Raising oklch lightness reduces contrast against the cream background;
+     re-validate with a contrast tool before editing. */
+  --success: oklch(0.5 0.12 150);
+  --success-foreground: #ffffff;
+  --danger: oklch(0.52 0.22 27);
+  --danger-foreground: #ffffff;
   --border: #d0ddd0;
   --input: #d0ddd0;
   --ring: #727d73;
@@ -104,6 +117,13 @@
   --accent: #aab99a; /* Medium sage green */
   --accent-foreground: #2a3330;
   --destructive: oklch(0.704 0.191 22.216);
+  /* Dark-mode W/L tokens. WCAG AA validated (>=4.5:1 normal text).
+     success 6.13:1 vs --background, 4.69:1 vs --card.
+     danger  6.00:1 vs --background, 4.59:1 vs --card. */
+  --success: oklch(0.75 0.12 150);
+  --success-foreground: #2a3330;
+  --danger: oklch(0.78 0.14 22);
+  --danger-foreground: #2a3330;
   --border: #4a5651;
   --input: #4a5651;
   --ring: #aab99a;

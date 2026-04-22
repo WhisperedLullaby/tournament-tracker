@@ -28,7 +28,7 @@ export function TournamentFormatSection({
     <section className="bg-muted/40 py-16 md:py-24">
       <div className="container mx-auto px-4">
         <div className="mx-auto">
-          <h2 className="from-primary via-accent to-primary mb-12 bg-gradient-to-r bg-clip-text text-5xl font-bold text-transparent md:text-8xl">
+          <h2 className="from-primary via-accent to-primary mb-12 bg-gradient-to-r bg-clip-text text-5xl font-bold text-transparent md:text-6xl">
             Tournament Format
           </h2>
 

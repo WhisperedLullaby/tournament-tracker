@@ -1,8 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
-import { Trophy, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Trophy, Clock, Pencil } from "lucide-react";
+import { useTournament } from "@/contexts/tournament-context";
+import { ScoreEntryModal } from "@/components/score-entry-modal";
 import type { BracketMatch, BracketTeam } from "@/lib/db/schema";
 
 interface BracketDisplayProps {
@@ -13,6 +17,8 @@ interface BracketDisplayProps {
 
 export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
   const shouldReduceMotion = useReducedMotion();
+  const { isOrganizer } = useTournament();
+  const [editMatch, setEditMatch] = useState<BracketMatch | null>(null);
 
   // Helper to get team name by ID
   const getTeamName = (teamId: number | null): string => {
@@ -80,7 +86,7 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
           isInProgress
             ? "border-primary bg-primary/5 shadow-lg"
             : isComplete
-              ? "border-green-500/30 bg-green-500/5"
+              ? "border-primary/30 bg-primary/5"
               : "border-muted"
         } ${className}`}
       >
@@ -89,22 +95,35 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
             <div className="text-muted-foreground text-xs font-medium">
               {label}
             </div>
-            {isInProgress && (
-              <motion.div
-                animate={shouldReduceMotion ? {} : { rotate: 360 }}
-                transition={{ repeat: Infinity, duration: 8, ease: "linear" }}
-              >
-                <Clock className="text-primary h-3 w-3" />
-              </motion.div>
-            )}
-            {isComplete && <Trophy className="h-3 w-3 text-green-600" />}
+            <div className="flex items-center gap-1">
+              {isInProgress && (
+                <motion.div
+                  animate={shouldReduceMotion ? {} : { rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 8, ease: "linear" }}
+                >
+                  <Clock className="text-primary h-3 w-3" />
+                </motion.div>
+              )}
+              {isComplete && <Trophy className="text-primary h-3 w-3" />}
+              {isOrganizer && !isPending && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => setEditMatch(match)}
+                  aria-label="Edit score"
+                >
+                  <Pencil className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Team A */}
           <div
             className={`flex items-center justify-between rounded-t border-b p-2 ${
               teamAWon
-                ? "border-green-500/30 bg-green-500/10"
+                ? "border-primary/30 bg-primary/10"
                 : isPending && !match.teamAId
                   ? "bg-muted/30 border-muted"
                   : "bg-background border-muted"
@@ -119,7 +138,7 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
                 exit={shouldReduceMotion ? {} : { opacity: 0, x: 6 }}
                 transition={{ duration: 0.2 }}
                 className={`truncate text-sm font-medium ${
-                  teamAWon ? "text-green-600 dark:text-green-400" : ""
+                  teamAWon ? "text-primary" : ""
                 } ${!match.teamAId ? "text-muted-foreground italic" : ""}`}
               >
                 {teamAName}
@@ -131,7 +150,7 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.35 }}
               className={`ml-2 text-sm font-bold ${
-                teamAWon ? "text-green-600 dark:text-green-400" : ""
+                teamAWon ? "text-primary" : ""
               }`}
             >
               {match.teamAScore}
@@ -142,7 +161,7 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
           <div
             className={`flex items-center justify-between rounded-b p-2 ${
               teamBWon
-                ? "border-green-500/30 bg-green-500/10"
+                ? "border-primary/30 bg-primary/10"
                 : isPending && !match.teamBId
                   ? "bg-muted/30 border-muted"
                   : "bg-background border-muted"
@@ -157,7 +176,7 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
                 exit={shouldReduceMotion ? {} : { opacity: 0, x: 6 }}
                 transition={{ duration: 0.2 }}
                 className={`truncate text-sm font-medium ${
-                  teamBWon ? "text-green-600 dark:text-green-400" : ""
+                  teamBWon ? "text-primary" : ""
                 } ${!match.teamBId ? "text-muted-foreground italic" : ""}`}
               >
                 {teamBName}
@@ -169,7 +188,7 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.35 }}
               className={`ml-2 text-sm font-bold ${
-                teamBWon ? "text-green-600 dark:text-green-400" : ""
+                teamBWon ? "text-primary" : ""
               }`}
             >
               {match.teamBScore}
@@ -184,8 +203,8 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
     <div
       className={`flex items-center justify-center rounded-lg border-2 border-dashed p-4 ${
         color === "yellow"
-          ? "border-yellow-500/30 bg-yellow-500/5"
-          : "border-blue-500/30 bg-blue-500/5"
+          ? "border-primary/30 bg-primary/5"
+          : "border-muted-foreground/30 bg-muted/30"
       }`}
     >
       <span className="text-muted-foreground text-xs">
@@ -201,7 +220,7 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
         <span>In Progress</span>
       </div>
       <div className="flex items-center gap-2">
-        <div className="h-3 w-3 rounded border-2 border-green-500/30 bg-green-500/5" />
+        <div className="h-3 w-3 rounded border-2 border-primary/30 bg-primary/5" />
         <span>Completed</span>
       </div>
       <div className="flex items-center gap-2">
@@ -211,8 +230,83 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
     </div>
   );
 
+  const mobileGroups =
+    teamCount <= 4
+      ? [
+          { heading: "Winner's Bracket · Round 1", games: [1, 2] },
+          { heading: "Loser's Bracket · Round 1", games: [3] },
+          { heading: "Winner's Final", games: [4] },
+          { heading: "Loser's Final", games: [5] },
+          { heading: "Championship", games: [6, 7] },
+        ]
+      : [
+          { heading: "Winner's Bracket · Round 1", games: [1, 2, 3] },
+          { heading: "Loser's Bracket · Round 1", games: [4, 6] },
+          { heading: "Winner's Semifinal", games: [5] },
+          { heading: "Loser's Quarterfinal", games: [8] },
+          { heading: "Winner's Final", games: [7] },
+          { heading: "Loser's Final", games: [9] },
+          { heading: "Championship", games: [10, 11] },
+        ];
+
+  const gameLabels: Record<number, string> =
+    teamCount <= 4
+      ? {
+          1: "Game 1 · 1st vs 3rd",
+          2: "Game 2 · 2nd vs 4th",
+          3: "Game 3 · Losers R1",
+          4: "Game 4 · Winners Final",
+          5: "Game 5 · Losers Final",
+          6: "Game 6 · Grand Finals",
+          7: "Game 7 · Finals Reset (If Needed)",
+        }
+      : {
+          1: "Game 1 · 1st vs 6th",
+          2: "Game 2 · 2nd vs 5th",
+          3: "Game 3 · 3rd vs 4th",
+          4: "Game 4 · Losers R1",
+          5: "Game 5 · Winners SF",
+          6: "Game 6 · Losers R1b",
+          7: "Game 7 · Winners Final",
+          8: "Game 8 · Losers QF",
+          9: "Game 9 · Losers Final",
+          10: "Game 10 · Grand Finals",
+          11: "Game 11 · Finals Reset (If Needed)",
+        };
+
   return (
-    <div className="w-full overflow-x-auto">
+    <div className="w-full">
+      {/* Mobile vertical list */}
+      <div className="md:hidden p-4">
+        <div className="mb-6 text-center">
+          <h2 className="mb-1 text-2xl font-bold">Tournament Bracket</h2>
+          <p className="text-muted-foreground text-sm">
+            Double Elimination Format
+          </p>
+        </div>
+        <div className="space-y-6">
+          {mobileGroups.map((group) => (
+            <div key={group.heading}>
+              <h3 className="text-muted-foreground mb-2 text-center text-xs font-semibold uppercase tracking-wide">
+                {group.heading}
+              </h3>
+              <div className="space-y-3">
+                {group.games.map((gameNum) => (
+                  <MatchCard
+                    key={gameNum}
+                    match={getMatch(gameNum)}
+                    label={gameLabels[gameNum]}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <Legend />
+      </div>
+
+      {/* Desktop bracket grid */}
+      <div className="hidden md:block w-full overflow-x-auto">
       <div className="min-w-[800px] p-4">
         {/* Header */}
         <div className="mb-6 text-center">
@@ -227,7 +321,7 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
           <div className="space-y-8">
             {/* Winner's Bracket */}
             <div>
-              <h3 className="mb-4 text-center text-lg font-semibold text-yellow-600 dark:text-yellow-500">
+              <h3 className="mb-4 text-center text-lg font-semibold text-primary">
                 Winner&apos;s Bracket
               </h3>
               <div className="grid grid-cols-3 gap-6">
@@ -251,7 +345,7 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
 
             {/* Loser's Bracket */}
             <div>
-              <h3 className="mb-4 text-center text-lg font-semibold text-blue-600 dark:text-blue-500">
+              <h3 className="mb-4 text-center text-lg font-semibold text-muted-foreground">
                 Loser&apos;s Bracket
               </h3>
               <div className="grid grid-cols-3 gap-6">
@@ -275,7 +369,7 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
 
             {/* Championship */}
             <div>
-              <h3 className="mb-4 text-center text-lg font-semibold text-purple-600 dark:text-purple-500">
+              <h3 className="mb-4 text-center text-lg font-semibold text-accent-foreground">
                 Championship
               </h3>
               <div className="mx-auto grid max-w-2xl grid-cols-2 gap-6">
@@ -289,7 +383,7 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
           <div className="space-y-8">
             {/* Winner's Bracket */}
             <div>
-              <h3 className="mb-4 text-center text-lg font-semibold text-yellow-600 dark:text-yellow-500">
+              <h3 className="mb-4 text-center text-lg font-semibold text-primary">
                 Winner&apos;s Bracket
               </h3>
               <div className="grid grid-cols-4 gap-4">
@@ -319,7 +413,7 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
 
             {/* Loser's Bracket */}
             <div>
-              <h3 className="mb-4 text-center text-lg font-semibold text-blue-600 dark:text-blue-500">
+              <h3 className="mb-4 text-center text-lg font-semibold text-muted-foreground">
                 Loser&apos;s Bracket
               </h3>
               <div className="grid grid-cols-4 gap-4">
@@ -348,7 +442,7 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
 
             {/* Championship */}
             <div>
-              <h3 className="mb-4 text-center text-lg font-semibold text-purple-600 dark:text-purple-500">
+              <h3 className="mb-4 text-center text-lg font-semibold text-accent-foreground">
                 Championship
               </h3>
               <div className="mx-auto grid max-w-2xl grid-cols-2 gap-6">
@@ -361,6 +455,21 @@ export function BracketDisplay({ matches, teams, pods }: BracketDisplayProps) {
 
         <Legend />
       </div>
+      </div>
+      {isOrganizer && editMatch && (
+        <ScoreEntryModal
+          open={editMatch !== null}
+          onOpenChange={(open) => {
+            if (!open) setEditMatch(null);
+          }}
+          matchId={editMatch.id}
+          matchType="bracket"
+          teamAName={getTeamName(editMatch.teamAId)}
+          teamBName={getTeamName(editMatch.teamBId)}
+          initialScoreA={editMatch.teamAScore}
+          initialScoreB={editMatch.teamBScore}
+        />
+      )}
     </div>
   );
 }

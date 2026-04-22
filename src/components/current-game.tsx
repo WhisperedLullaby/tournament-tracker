@@ -4,6 +4,10 @@ import React, { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Pencil } from "lucide-react";
+import { useTournament } from "@/contexts/tournament-context";
+import { ScoreEntryModal } from "@/components/score-entry-modal";
 import type { PoolMatch } from "@/lib/db/schema";
 
 interface CurrentGameProps {
@@ -19,7 +23,9 @@ export function CurrentGame({
 }: CurrentGameProps) {
   const [match, setMatch] = useState<PoolMatch | null>(initialMatch);
   const [showCompletedAnimation, setShowCompletedAnimation] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const shouldReduceMotion = useReducedMotion();
+  const { isOrganizer } = useTournament();
 
   // Update match when prop changes (from page-level subscription)
   useEffect(() => {
@@ -87,20 +93,36 @@ export function CurrentGame({
       className={`border-2 ${showCompletedAnimation ? "border-primary animate-pulse" : "border-primary"}`}
     >
       <CardHeader>
-        <CardTitle className="flex items-center gap-3">
-          <span>Game {match.gameNumber}</span>
-          {!showCompletedAnimation && (
-            <Badge className="bg-primary text-primary-foreground animate-pulse">
-              LIVE
-            </Badge>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle className="flex items-center gap-3">
+              <span>Game {match.gameNumber}</span>
+              {!showCompletedAnimation && (
+                <Badge className="bg-primary text-primary-foreground animate-pulse">
+                  LIVE
+                </Badge>
+              )}
+              {showCompletedAnimation && (
+                <Badge className="bg-primary text-primary-foreground">
+                  FINAL
+                </Badge>
+              )}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              {scheduledTime && `Scheduled: ${scheduledTime} • `}Court 1
+            </p>
+          </div>
+          {isOrganizer && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEditOpen(true)}
+              aria-label="Edit score"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
           )}
-          {showCompletedAnimation && (
-            <Badge className="bg-green-600 text-white">FINAL</Badge>
-          )}
-        </CardTitle>
-        <p className="text-sm text-muted-foreground">
-          {scheduledTime && `Scheduled: ${scheduledTime} • `}Court 1
-        </p>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
@@ -122,8 +144,8 @@ export function CurrentGame({
             </div>
             <motion.div
               key={`score-a-${match.teamAScore}`}
-              initial={shouldReduceMotion ? {} : { scale: 1.35, filter: "drop-shadow(0 0 12px #dc4444)" }}
-              animate={{ scale: 1, filter: "drop-shadow(0 0 0px #dc4444)" }}
+              initial={shouldReduceMotion ? {} : { scale: 1.35, filter: "drop-shadow(0 0 12px rgba(200,165,70,0.6))" }}
+              animate={{ scale: 1, filter: "drop-shadow(0 0 0px rgba(200,165,70,0))" }}
               transition={{ duration: 0.5, ease: "easeOut" }}
               className={`text-6xl font-bold tabular-nums ${
                 showCompletedAnimation && winner === "A"
@@ -153,8 +175,8 @@ export function CurrentGame({
             </div>
             <motion.div
               key={`score-b-${match.teamBScore}`}
-              initial={shouldReduceMotion ? {} : { scale: 1.35, filter: "drop-shadow(0 0 12px #dc4444)" }}
-              animate={{ scale: 1, filter: "drop-shadow(0 0 0px #dc4444)" }}
+              initial={shouldReduceMotion ? {} : { scale: 1.35, filter: "drop-shadow(0 0 12px rgba(200,165,70,0.6))" }}
+              animate={{ scale: 1, filter: "drop-shadow(0 0 0px rgba(200,165,70,0))" }}
               transition={{ duration: 0.5, ease: "easeOut" }}
               className={`text-6xl font-bold tabular-nums ${
                 showCompletedAnimation && winner === "B"
@@ -175,6 +197,18 @@ export function CurrentGame({
           </div>
         )}
       </CardContent>
+      {isOrganizer && (
+        <ScoreEntryModal
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          matchId={match.id}
+          matchType="pool"
+          teamAName={formatTeamNames(teamAPods)}
+          teamBName={formatTeamNames(teamBPods)}
+          initialScoreA={match.teamAScore}
+          initialScoreB={match.teamBScore}
+        />
+      )}
     </Card>
   );
 }

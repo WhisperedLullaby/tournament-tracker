@@ -46,7 +46,7 @@ export function BracketTeamCards({ teams, pods }: BracketTeamCardsProps) {
     if (seed === 1) return <Trophy className="h-5 w-5 text-yellow-500" />;
     if (seed === 2) return <Medal className="h-5 w-5 text-slate-400" />;
     if (seed === 3) return <Medal className="h-5 w-5 text-amber-700" />;
-    if (seed === 4) return <Medal className="h-5 w-5 text-blue-600" />;
+    if (seed === 4) return <Medal className="h-5 w-5 text-muted-foreground" />;
     return null;
   };
 
@@ -84,7 +84,7 @@ export function BracketTeamCards({ teams, pods }: BracketTeamCardsProps) {
             1: "border-yellow-500/30 bg-yellow-500/5",
             2: "border-slate-400/30 bg-slate-400/5",
             3: "border-amber-700/30 bg-amber-700/5",
-            4: "border-blue-600/30 bg-blue-600/5",
+            4: "border-muted-foreground/30 bg-muted/30",
           };
 
           return (

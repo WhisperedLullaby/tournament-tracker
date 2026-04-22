@@ -46,7 +46,7 @@ export function TournamentDetailsSection({
   return (
     <section className="py-16 md:py-24">
       <div className="container mx-auto px-4">
-        <h2 className="from-primary via-accent to-primary mb-12 bg-gradient-to-r bg-clip-text text-5xl font-bold text-transparent md:text-8xl">
+        <h2 className="from-primary via-accent to-primary mb-12 bg-gradient-to-r bg-clip-text text-5xl font-bold text-transparent md:text-6xl">
           Tournament Details
         </h2>
 
