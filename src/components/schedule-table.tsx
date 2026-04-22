@@ -13,6 +13,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Pencil } from "lucide-react";
+import { useTournament } from "@/contexts/tournament-context";
+import { ScoreEntryModal } from "@/components/score-entry-modal";
 import type { PoolMatch } from "@/lib/db/schema";
 
 interface ScheduleTableProps {
@@ -22,7 +25,9 @@ interface ScheduleTableProps {
 
 export function ScheduleTable({ matches, podNames }: ScheduleTableProps) {
   const [filterPod, setFilterPod] = useState<number | null>(null);
+  const [editMatch, setEditMatch] = useState<PoolMatch | null>(null);
   const shouldReduceMotion = useReducedMotion();
+  const { isOrganizer } = useTournament();
 
   // Get unique pod IDs from podNames map and sort them
   const allPodIds = Array.from(podNames.keys()).sort((a, b) => a - b);
@@ -78,11 +83,11 @@ export function ScheduleTable({ matches, podNames }: ScheduleTableProps) {
   const getRowClassName = (status: string) => {
     switch (status) {
       case "completed":
-        return "opacity-60";
+        return "opacity-60 odd:bg-muted/20";
       case "in_progress":
         return "bg-primary/10 font-medium";
       default:
-        return "";
+        return "odd:bg-muted/30";
     }
   };
 
@@ -122,13 +127,14 @@ export function ScheduleTable({ matches, podNames }: ScheduleTableProps) {
                 <TableHead>Team B</TableHead>
                 <TableHead>Sitting</TableHead>
                 <TableHead className="w-32">Status</TableHead>
+                {isOrganizer && <TableHead className="w-12" />}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredMatches.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={isOrganizer ? 8 : 7}
                     className="text-muted-foreground text-center"
                   >
                     No games found for this pod
@@ -154,8 +160,8 @@ export function ScheduleTable({ matches, podNames }: ScheduleTableProps) {
                         {match.status !== "pending" && (
                           <motion.span
                             key={`${match.id}-a-${match.teamAScore}`}
-                            initial={shouldReduceMotion ? {} : { scale: 1.2, opacity: 0.7, filter: "drop-shadow(0 0 4px #dc4444)" }}
-                            animate={{ scale: 1, opacity: 1, filter: "drop-shadow(0 0 0px #dc4444)" }}
+                            initial={shouldReduceMotion ? {} : { scale: 1.2, opacity: 0.7, filter: "drop-shadow(0 0 4px rgba(200,165,70,0.6))" }}
+                            animate={{ scale: 1, opacity: 1, filter: "drop-shadow(0 0 0px rgba(200,165,70,0))" }}
                             transition={{ duration: 0.35 }}
                             className="text-primary mt-1 text-sm font-semibold"
                           >
@@ -175,8 +181,8 @@ export function ScheduleTable({ matches, podNames }: ScheduleTableProps) {
                         {match.status !== "pending" && (
                           <motion.span
                             key={`${match.id}-b-${match.teamBScore}`}
-                            initial={shouldReduceMotion ? {} : { scale: 1.2, opacity: 0.7, filter: "drop-shadow(0 0 4px #dc4444)" }}
-                            animate={{ scale: 1, opacity: 1, filter: "drop-shadow(0 0 0px #dc4444)" }}
+                            initial={shouldReduceMotion ? {} : { scale: 1.2, opacity: 0.7, filter: "drop-shadow(0 0 4px rgba(200,165,70,0.6))" }}
+                            animate={{ scale: 1, opacity: 1, filter: "drop-shadow(0 0 0px rgba(200,165,70,0))" }}
                             transition={{ duration: 0.35 }}
                             className="text-primary mt-1 text-sm font-semibold"
                           >
@@ -189,6 +195,20 @@ export function ScheduleTable({ matches, podNames }: ScheduleTableProps) {
                       {formatTeamNames(match.sittingPods as number[])}
                     </TableCell>
                     <TableCell>{getStatusBadge(match.status)}</TableCell>
+                    {isOrganizer && (
+                      <TableCell>
+                        {match.status === "in_progress" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setEditMatch(match)}
+                            aria-label="Edit score"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))
               )}
@@ -196,6 +216,20 @@ export function ScheduleTable({ matches, podNames }: ScheduleTableProps) {
           </Table>
         </div>
       </CardContent>
+      {isOrganizer && editMatch && (
+        <ScoreEntryModal
+          open={editMatch !== null}
+          onOpenChange={(open) => {
+            if (!open) setEditMatch(null);
+          }}
+          matchId={editMatch.id}
+          matchType="pool"
+          teamAName={formatTeamNames(editMatch.teamAPods as number[])}
+          teamBName={formatTeamNames(editMatch.teamBPods as number[])}
+          initialScoreA={editMatch.teamAScore}
+          initialScoreB={editMatch.teamBScore}
+        />
+      )}
     </Card>
   );
 }

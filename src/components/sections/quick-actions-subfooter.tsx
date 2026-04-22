@@ -23,6 +23,11 @@ export function QuickActionsSubFooter({
   const handleSignOut = () => {
     signOut();
   };
+
+  const cardClass =
+    "p-6 bg-card text-card-foreground border border-border rounded-lg shadow-sm hover:shadow-md transition-shadow text-center";
+  const descClass = "text-sm text-muted-foreground mt-1";
+
   return (
     <section className="bg-muted/20 py-12 md:py-16">
       <div className="container mx-auto px-4">
@@ -30,100 +35,88 @@ export function QuickActionsSubFooter({
         <div className="mx-auto grid max-w-5xl gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Link
             href={`/tournaments/${tournamentSlug}/standings`}
-            className="p-6 bg-white/80 backdrop-blur-sm rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
+            className={cardClass}
           >
             <div className="text-3xl mb-2">🏆</div>
             <h3 className="font-semibold">Standings</h3>
-            <p className="text-sm text-gray-600 mt-1">View current rankings</p>
+            <p className={descClass}>View current rankings</p>
           </Link>
 
           <Link
             href={`/tournaments/${tournamentSlug}/schedule`}
-            className="p-6 bg-white/80 backdrop-blur-sm rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
+            className={cardClass}
           >
             <div className="text-3xl mb-2">📅</div>
             <h3 className="font-semibold">Schedule</h3>
-            <p className="text-sm text-gray-600 mt-1">View match schedule</p>
+            <p className={descClass}>View match schedule</p>
           </Link>
 
           {tournamentStatus !== "upcoming" && (
             <Link
               href={`/tournaments/${tournamentSlug}/scoreboard`}
-              className="p-6 bg-white/80 backdrop-blur-sm rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
+              className={cardClass}
             >
               <div className="text-3xl mb-2">🏐</div>
               <h3 className="font-semibold">Scoreboard</h3>
-              <p className="text-sm text-gray-600 mt-1">Live scores</p>
+              <p className={descClass}>Live scores</p>
             </Link>
           )}
 
           {tournamentStatus !== "upcoming" && (
             <Link
               href={`/tournaments/${tournamentSlug}/bracket`}
-              className="p-6 bg-white/80 backdrop-blur-sm rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
+              className={cardClass}
             >
               <div className="text-3xl mb-2">🎯</div>
               <h3 className="font-semibold">Bracket</h3>
-              <p className="text-sm text-gray-600 mt-1">
-                View elimination bracket
-              </p>
+              <p className={descClass}>View elimination bracket</p>
             </Link>
           )}
 
           {tournamentStatus === "upcoming" && !userRole && (
             <Link
               href={`/tournaments/${tournamentSlug}/register`}
-              className="p-6 bg-blue-50 border-2 border-blue-500 rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
+              className={cardClass}
             >
               <div className="text-3xl mb-2">✍️</div>
-              <h3 className="font-semibold text-blue-900">Register</h3>
-              <p className="text-sm text-blue-700 mt-1">Sign up your team</p>
+              <h3 className="font-semibold">Register</h3>
+              <p className={descClass}>Sign up your team</p>
             </Link>
           )}
 
           <Link
             href={`/tournaments/${tournamentSlug}/scorekeeper`}
-            className="p-6 bg-purple-50 border-2 border-purple-500 rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
+            className={cardClass}
           >
             <div className="text-3xl mb-2">📊</div>
-            <h3 className="font-semibold text-purple-900">Scorekeeper</h3>
-            <p className="text-sm text-purple-700 mt-1">Manage scores</p>
+            <h3 className="font-semibold">Scorekeeper</h3>
+            <p className={descClass}>Manage scores</p>
           </Link>
 
           {userRole === "organizer" && (
             <Link
               href={`/tournaments/${tournamentSlug}/settings`}
-              className="p-6 bg-green-50 border-2 border-green-500 rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
+              className={cardClass}
             >
               <div className="text-3xl mb-2">⚙️</div>
-              <h3 className="font-semibold text-green-900">Settings</h3>
-              <p className="text-sm text-green-700 mt-1">Manage tournament</p>
+              <h3 className="font-semibold">Settings</h3>
+              <p className={descClass}>Manage tournament</p>
             </Link>
           )}
 
           {!userRole && (
-            <button
-              onClick={handleSignIn}
-              className="p-6 bg-yellow-50 border-2 border-yellow-500 rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
-            >
+            <button onClick={handleSignIn} className={cardClass}>
               <div className="text-3xl mb-2">🔑</div>
-              <h3 className="font-semibold text-yellow-900">Sign In</h3>
-              <p className="text-sm text-yellow-700 mt-1">
-                Sign in with Google
-              </p>
+              <h3 className="font-semibold">Sign In</h3>
+              <p className={descClass}>Sign in with Google</p>
             </button>
           )}
 
           {userRole && (
-            <button
-              onClick={handleSignOut}
-              className="p-6 bg-red-50 border-2 border-red-500 rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
-            >
+            <button onClick={handleSignOut} className={cardClass}>
               <div className="text-3xl mb-2">🚪</div>
-              <h3 className="font-semibold text-red-900">Sign Out</h3>
-              <p className="text-sm text-red-700 mt-1">
-                Log out of account
-              </p>
+              <h3 className="font-semibold">Sign Out</h3>
+              <p className={descClass}>Log out of account</p>
             </button>
           )}
         </div>

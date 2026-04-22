@@ -71,7 +71,7 @@ export function TournamentRulesSection({
 
       <div className="container relative z-10 mx-auto px-4">
         <div className="mx-auto">
-          <h2 className="from-primary via-accent to-primary mb-12 bg-gradient-to-r bg-clip-text text-5xl font-bold text-transparent md:text-8xl">
+          <h2 className="from-primary via-accent to-primary mb-12 bg-gradient-to-r bg-clip-text text-5xl font-bold text-transparent md:text-6xl">
             Tournament Rules
           </h2>
           <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-7">

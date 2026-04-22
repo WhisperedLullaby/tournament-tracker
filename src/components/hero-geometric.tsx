@@ -180,8 +180,8 @@ export function HeroGeometric({
             initial="hidden"
             animate="visible"
           >
-            <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-5xl md:mb-8 md:text-6xl lg:text-7xl">
-              <span className="from-foreground to-foreground/80 bg-linear-to-b bg-clip-text text-transparent lg:text-8xl">
+            <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-5xl md:mb-8 md:text-6xl lg:text-6xl">
+              <span className="from-foreground to-foreground/80 bg-linear-to-b bg-clip-text text-transparent lg:text-6xl">
                 {title1}
               </span>
               <br />

@@ -67,7 +67,7 @@ export function TournamentCardGrid({ data }: TournamentCardGridProps) {
         >
           <Link
             href={`/tournaments/${tournament.slug}`}
-            className="block p-6 bg-white rounded-lg border border-gray-200 shadow-sm h-full"
+            className="block p-6 bg-card text-card-foreground rounded-lg border border-border shadow-sm h-full"
           >
             <div className="flex justify-between items-start mb-2">
               <h2 className="text-xl font-semibold">{tournament.name}</h2>
@@ -78,7 +78,7 @@ export function TournamentCardGrid({ data }: TournamentCardGridProps) {
               />
             </div>
 
-            <p className="text-sm text-gray-600 mb-2">
+            <p className="text-sm text-muted-foreground mb-2">
               {new Date(tournament.date).toLocaleDateString("en-US", {
                 weekday: "long",
                 year: "numeric",
@@ -89,25 +89,25 @@ export function TournamentCardGrid({ data }: TournamentCardGridProps) {
             </p>
 
             {tournament.location && (
-              <p className="text-sm text-gray-500 mb-3">
+              <p className="text-sm text-muted-foreground mb-3">
                 📍 {tournament.location}
               </p>
             )}
 
             {tournament.description && (
-              <p className="text-sm text-gray-700 line-clamp-2 mb-3">
+              <p className="text-sm text-foreground line-clamp-2 mb-3">
                 {tournament.description}
               </p>
             )}
 
-            <div className="pt-3 border-t mt-3">
+            <div className="pt-3 border-t border-border mt-3">
               <div className="flex justify-between items-center text-sm mb-2">
-                <span className="text-gray-600">Teams Registered:</span>
+                <span className="text-muted-foreground">Teams Registered:</span>
                 <span
                   className={`font-semibold ${
                     podCount >= tournament.maxPods
-                      ? "text-red-600"
-                      : "text-blue-600"
+                      ? "text-destructive"
+                      : "text-primary"
                   }`}
                 >
                   {podCount}/{tournament.maxPods}

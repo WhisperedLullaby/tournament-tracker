@@ -13,18 +13,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Check, ChevronLeft, ChevronRight, DollarSign } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, DollarSign, TriangleAlert } from "lucide-react";
 import { createClient } from "@/lib/auth/client";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import type { User } from "@supabase/supabase-js";
 import type { Tournament } from "@/lib/db/schema";
 
-// Define the stepper with auth step first
+// Collapsed 3-step flow: Partner → Payment → Success
 const { useStepper } = defineStepper(
-  { id: "auth", title: "Sign In" },
-  { id: "confirm", title: "Confirm Details" },
-  { id: "partner", title: "Add Partner" },
-  { id: "team-name", title: "Name Your Team" },
+  { id: "partner", title: "Your Team" },
   { id: "payment", title: "Payment" },
   { id: "success", title: "Success!" }
 );
@@ -36,21 +33,67 @@ type FormData = {
   teamName: string;
 };
 
+const ONE_HOUR_MS = 60 * 60 * 1000;
+
+type PersistedRegistration = {
+  formData: FormData;
+  savedAt: number;
+};
+
 export function RegistrationForm({ tournament }: { tournament: Tournament }) {
   const supabase = createClient();
   const stepper = useStepper();
+  const storageKey = `registration:${tournament.slug}`;
   const [user, setUser] = useState<User | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const [formData, setFormData] = useState<FormData>({
-    email: "",
-    player1: "",
-    player2: "",
-    teamName: "",
+  const [formData, setFormData] = useState<FormData>(() => {
+    if (typeof window === "undefined") {
+      return { email: "", player1: "", player2: "", teamName: "" };
+    }
+    try {
+      const raw = window.sessionStorage.getItem(`registration:${tournament.slug}`);
+      if (raw) {
+        const parsed = JSON.parse(raw) as PersistedRegistration;
+        if (
+          parsed.savedAt &&
+          Date.now() - parsed.savedAt < ONE_HOUR_MS &&
+          parsed.formData
+        ) {
+          return parsed.formData;
+        }
+        window.sessionStorage.removeItem(`registration:${tournament.slug}`);
+      }
+    } catch {
+      // ignore malformed storage
+    }
+    return { email: "", player1: "", player2: "", teamName: "" };
   });
   const [errors, setErrors] = useState<Partial<FormData>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string>("");
   const [emailWarning, setEmailWarning] = useState<string | null>(null);
+
+  // Persist formData to sessionStorage on every change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const payload: PersistedRegistration = {
+        formData,
+        savedAt: Date.now(),
+      };
+      window.sessionStorage.setItem(storageKey, JSON.stringify(payload));
+    } catch {
+      // ignore quota errors
+    }
+  }, [formData, storageKey]);
+
+  // Clear persisted state once registration succeeds
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (stepper.current.id === "success") {
+      window.sessionStorage.removeItem(storageKey);
+    }
+  }, [stepper, storageKey]);
 
   // Check if user is already signed in
   useEffect(() => {
@@ -72,12 +115,6 @@ export function RegistrationForm({ tournament }: { tournament: Tournament }) {
           email: session.user.email ?? "",
           player1: googleName ?? "",
         }));
-
-        // Skip to confirm step if already signed in
-        stepper.goTo("confirm");
-      } else if (!tournament.requireAuth) {
-        // If auth is not required, skip the auth step
-        stepper.goTo("confirm");
       }
 
       setIsCheckingAuth(false);
@@ -102,8 +139,6 @@ export function RegistrationForm({ tournament }: { tournament: Tournament }) {
           email: session.user.email ?? "",
           player1: prev.player1 || (googleName ?? ""),
         }));
-
-        stepper.goTo("confirm");
       }
     });
 
@@ -119,9 +154,11 @@ export function RegistrationForm({ tournament }: { tournament: Tournament }) {
     }
   };
 
-  const validateConfirm = () => {
+  const validatePartner = () => {
     const newErrors: Partial<FormData> = {};
     if (!formData.player1.trim()) newErrors.player1 = "Your name is required";
+    if (!formData.player2.trim())
+      newErrors.player2 = "Partner name is required";
 
     // Validate email if not authenticated
     if (!user && !tournament.requireAuth) {
@@ -136,17 +173,7 @@ export function RegistrationForm({ tournament }: { tournament: Tournament }) {
     return Object.keys(newErrors).length === 0;
   };
 
-  const validatePartner = () => {
-    const newErrors: Partial<FormData> = {};
-    if (!formData.player2.trim())
-      newErrors.player2 = "Partner name is required";
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const handleNext = () => {
-    if (stepper.current.id === "confirm" && !validateConfirm()) return;
     if (stepper.current.id === "partner" && !validatePartner()) return;
 
     if (stepper.current.id === "payment") {
@@ -233,115 +260,106 @@ export function RegistrationForm({ tournament }: { tournament: Tournament }) {
           </div>
         ) : (
           stepper.switch({
-            auth: () => (
-              <div className="space-y-4">
-                <p className="text-muted-foreground text-center text-sm">
-                  Sign in with your Google account to register for the
-                  tournament. This helps us keep track of participants and send
-                  you updates.
-                </p>
-                <GoogleSignInButton />
-                <p className="text-muted-foreground text-center text-xs">
-                  By signing in, you agree to receive tournament-related emails
-                </p>
-              </div>
-            ),
-            confirm: () => (
-              <div className="space-y-4">
-                {user ? (
-                  <div className="bg-muted/50 space-y-2 rounded-lg p-3 text-sm">
-                    <p>
-                      <strong>Signed in as:</strong>
-                    </p>
-                    <p className="text-muted-foreground">{user?.email}</p>
-                  </div>
-                ) : (
-                  <div>
-                    <Label htmlFor="email">Email Address</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="your.email@example.com"
-                      value={formData.email}
-                      onChange={(e) => updateField("email", e.target.value)}
-                      className={errors.email ? "border-destructive" : ""}
-                    />
-                    {errors.email && (
-                      <p className="text-destructive mt-1 text-sm">
-                        {errors.email}
-                      </p>
-                    )}
-                    <p className="text-muted-foreground mt-2 text-xs">
-                      We&apos;ll send tournament updates to this email
-                    </p>
-                  </div>
-                )}
-
-                <div>
-                  <Label htmlFor="player1">Your Name (Captain)</Label>
-                  <Input
-                    id="player1"
-                    type="text"
-                    placeholder="Your name"
-                    value={formData.player1}
-                    onChange={(e) => updateField("player1", e.target.value)}
-                    className={errors.player1 ? "border-destructive" : ""}
-                  />
-                  {errors.player1 && (
-                    <p className="text-destructive mt-1 text-sm">
-                      {errors.player1}
-                    </p>
-                  )}
-                  {user && (
-                    <p className="text-muted-foreground mt-2 text-xs">
-                      This is pre-filled from your Google account, but you can
-                      change it
-                    </p>
-                  )}
-                </div>
-
-                {/* Cloudflare Turnstile CAPTCHA */}
-                <div className="flex justify-center">
-                  <Turnstile
-                    siteKey={
-                      process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ||
-                      "1x00000000000000000000AA"
-                    }
-                    onSuccess={(token) => setCaptchaToken(token)}
-                    onError={() => setCaptchaToken("")}
-                    onExpire={() => setCaptchaToken("")}
-                  />
-                </div>
-              </div>
-            ),
             partner: () => (
               <div className="space-y-4">
-                <div>
-                  <Label htmlFor="player2">Partner (Player 2)</Label>
-                  <Input
-                    id="player2"
-                    type="text"
-                    placeholder="Partner's name"
-                    value={formData.player2}
-                    onChange={(e) => updateField("player2", e.target.value)}
-                    className={errors.player2 ? "border-destructive" : ""}
-                  />
-                  {errors.player2 && (
-                    <p className="text-destructive mt-1 text-sm">
-                      {errors.player2}
+                {tournament.requireAuth && !user ? (
+                  <div className="space-y-4">
+                    <p className="text-muted-foreground text-center text-sm">
+                      Sign in with your Google account to register. We use this
+                      to confirm your email and send tournament updates.
                     </p>
-                  )}
-                </div>
+                    <GoogleSignInButton />
+                  </div>
+                ) : (
+                  <>
+                    {user ? (
+                      <div className="bg-muted/50 space-y-2 rounded-lg p-3 text-sm">
+                        <p>
+                          <strong>Signed in as:</strong>
+                        </p>
+                        <p className="text-muted-foreground">{user?.email}</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <Label htmlFor="email">Email Address</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          placeholder="your.email@example.com"
+                          value={formData.email}
+                          onChange={(e) =>
+                            updateField("email", e.target.value)
+                          }
+                          className={errors.email ? "border-destructive" : ""}
+                        />
+                        {errors.email && (
+                          <p className="text-destructive mt-1 text-sm">
+                            {errors.email}
+                          </p>
+                        )}
+                        <p className="text-muted-foreground mt-2 text-xs">
+                          We&apos;ll send tournament updates to this email
+                        </p>
+                      </div>
+                    )}
 
-                <p className="text-muted-foreground text-sm">
-                  Your pod will be registered as &quot;
-                  {formData.player1 || "Player 1"}&{" "}
-                  {formData.player2 || "Player 2"}&quot;
-                </p>
+                    <div>
+                      <Label htmlFor="player1">Your Name (Captain)</Label>
+                      <Input
+                        id="player1"
+                        type="text"
+                        placeholder="Your name"
+                        value={formData.player1}
+                        onChange={(e) => updateField("player1", e.target.value)}
+                        className={errors.player1 ? "border-destructive" : ""}
+                      />
+                      {errors.player1 && (
+                        <p className="text-destructive mt-1 text-sm">
+                          {errors.player1}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="player2">Partner (Player 2)</Label>
+                      <Input
+                        id="player2"
+                        type="text"
+                        placeholder="Partner's name"
+                        value={formData.player2}
+                        onChange={(e) => updateField("player2", e.target.value)}
+                        className={errors.player2 ? "border-destructive" : ""}
+                      />
+                      {errors.player2 && (
+                        <p className="text-destructive mt-1 text-sm">
+                          {errors.player2}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex justify-center">
+                      <Turnstile
+                        siteKey={
+                          process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ||
+                          "1x00000000000000000000AA"
+                        }
+                        options={{ size: "compact" }}
+                        onSuccess={(token) => setCaptchaToken(token)}
+                        onError={() => setCaptchaToken("")}
+                        onExpire={() => setCaptchaToken("")}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
             ),
-            "team-name": () => (
-              <div className="space-y-4">
+            payment: () => {
+              const fee = tournament.entryFee;
+              const handle = tournament.paymentHandle;
+              const isVenmo = handle?.startsWith("@");
+              const venmoUsername = isVenmo ? handle!.slice(1) : null;
+
+              const teamNameField = (
                 <div>
                   <Label htmlFor="teamName">Team Name (Optional)</Label>
                   <Input
@@ -351,22 +369,17 @@ export function RegistrationForm({ tournament }: { tournament: Tournament }) {
                     value={formData.teamName}
                     onChange={(e) => updateField("teamName", e.target.value)}
                   />
-                  <p className="text-muted-foreground mt-2 text-sm">
-                    Give your team a custom name, or leave blank to use &quot;
-                    {formData.player1} & {formData.player2}&quot;
+                  <p className="text-muted-foreground mt-2 text-xs">
+                    Defaults to &quot;{formData.player1 || "Player 1"} &amp;{" "}
+                    {formData.player2 || "Player 2"}&quot;
                   </p>
                 </div>
-              </div>
-            ),
-            payment: () => {
-              const fee = tournament.entryFee;
-              const handle = tournament.paymentHandle;
-              const isVenmo = handle?.startsWith("@");
-              const venmoUsername = isVenmo ? handle!.slice(1) : null;
+              );
 
               if (!fee) {
                 return (
                   <div className="space-y-4">
+                    {teamNameField}
                     <div className="bg-accent/20 border-accent flex items-center gap-3 rounded-lg border p-4">
                       <div className="bg-accent flex h-12 w-12 shrink-0 items-center justify-center rounded-full">
                         <DollarSign className="text-accent-foreground h-6 w-6" />
@@ -384,6 +397,7 @@ export function RegistrationForm({ tournament }: { tournament: Tournament }) {
 
               return (
                 <div className="space-y-4">
+                  {teamNameField}
                   {/* Price Display */}
                   <div className="bg-accent/20 border-accent flex items-center justify-between rounded-lg border p-4">
                     <div className="flex items-center gap-3">
@@ -495,10 +509,9 @@ export function RegistrationForm({ tournament }: { tournament: Tournament }) {
 
                 {/* Email Warning */}
                 {emailWarning && (
-                  <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-left dark:border-yellow-900 dark:bg-yellow-950/20">
-                    <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                      ⚠️ {emailWarning}
-                    </p>
+                  <div className="bg-muted border-border flex items-start gap-2 rounded-lg border p-3 text-left">
+                    <TriangleAlert className="text-destructive mt-0.5 h-4 w-4 flex-shrink-0" />
+                    <p className="text-foreground text-sm">{emailWarning}</p>
                   </div>
                 )}
 
@@ -510,39 +523,42 @@ export function RegistrationForm({ tournament }: { tournament: Tournament }) {
           })
         )}
 
-        {/* Navigation buttons */}
-        {stepper.current.id !== "success" && stepper.current.id !== "auth" && (
-          <div className="mt-6 flex gap-2">
-            <Button
-              variant="outline"
-              onClick={stepper.prev}
-              disabled={
-                stepper.isFirst ||
-                isSubmitting ||
-                stepper.current.id === "confirm"
-              }
-              className="flex-1"
-            >
-              <ChevronLeft className="mr-2 h-4 w-4" />
-              Previous
-            </Button>
-            <Button
-              onClick={handleNext}
-              disabled={
-                isSubmitting ||
-                (stepper.current.id === "confirm" && !captchaToken)
-              }
-              className="flex-1"
-            >
-              {isSubmitting
-                ? "Submitting..."
-                : stepper.isLast
-                  ? "Submit"
-                  : "Next"}
-              {!stepper.isLast && <ChevronRight className="ml-2 h-4 w-4" />}
-            </Button>
-          </div>
-        )}
+        {/* Navigation buttons — hidden on success, and on partner step when auth is required but user not signed in */}
+        {stepper.current.id !== "success" &&
+          !(
+            stepper.current.id === "partner" &&
+            tournament.requireAuth &&
+            !user
+          ) && (
+            <div className="mt-6 flex gap-2">
+              <Button
+                variant="outline"
+                onClick={stepper.prev}
+                disabled={stepper.isFirst || isSubmitting}
+                className="flex-1"
+              >
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Previous
+              </Button>
+              <Button
+                onClick={handleNext}
+                disabled={
+                  isSubmitting ||
+                  (stepper.current.id === "partner" && !captchaToken)
+                }
+                className="flex-1"
+              >
+                {isSubmitting
+                  ? "Submitting..."
+                  : stepper.current.id === "payment"
+                    ? "Submit"
+                    : "Next"}
+                {stepper.current.id !== "payment" && (
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          )}
       </CardContent>
     </Card>
   );

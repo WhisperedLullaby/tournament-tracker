@@ -19,15 +19,15 @@ export function NextUp({ nextGamePods, nextGameTime, podNames }: NextUpProps) {
   const podNumberMap = new Map<number, number>();
   Array.from(podNames.keys()).sort((a, b) => a - b).forEach((id, index) => podNumberMap.set(id, index + 1));
 
-  // Generate random color classes for badges
+  // Cycle per-pod through the 5 sage chart tokens defined in globals.css.
+  // Class strings must be literal so Tailwind's JIT can see them.
   const getColorClass = (index: number) => {
     const colors = [
-      "bg-blue-100 text-blue-800 border-blue-300",
-      "bg-green-100 text-green-800 border-green-300",
-      "bg-purple-100 text-purple-800 border-purple-300",
-      "bg-orange-100 text-orange-800 border-orange-300",
-      "bg-pink-100 text-pink-800 border-pink-300",
-      "bg-indigo-100 text-indigo-800 border-indigo-300",
+      "bg-chart-1/20 text-foreground border-chart-1/50",
+      "bg-chart-2/20 text-foreground border-chart-2/60",
+      "bg-chart-3/30 text-foreground border-chart-3/70",
+      "bg-chart-4/40 text-foreground border-chart-4/70",
+      "bg-chart-5/40 text-foreground border-chart-5/70",
     ];
     return colors[index % colors.length];
   };

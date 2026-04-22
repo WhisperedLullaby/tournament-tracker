@@ -97,7 +97,7 @@ export default async function TournamentsPage({
                 <h1 className="text-4xl font-bold md:text-5xl">Tournaments</h1>
               </div>
               <p className="text-muted-foreground text-lg">
-                Hewwo Pwincess, these are all the past, preset and future
+                Hewwo Pwincess, these are all the past, present and future
                 tournaments
               </p>
             </div>
