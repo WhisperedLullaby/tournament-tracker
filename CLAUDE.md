@@ -49,7 +49,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 ## Architecture
 
 ### Routing
-All primary pages live under `/tournaments/[slug]/`. Legacy top-level routes (`/standings`, `/schedule`, etc.) still exist but are not the active implementation.
+Two top-level products: tournaments and pickup games. Tournament pages live under `/tournaments/[slug]/`; pickup pages mirror that pattern at `/pickup/[slug]/`. Legacy top-level routes (`/standings`, `/schedule`, etc.) still exist but are not the active implementation.
 
 ```
 src/app/
@@ -66,15 +66,26 @@ src/app/
 │       ├── scorekeeper/page.tsx      # Live scorekeeper (organizer only)
 │       ├── bracket/page.tsx          # Bracket visualization
 │       └── settings/page.tsx         # Tournament settings (organizer only)
-├── api/                              # 17 API routes (games, bracket, registration, etc.)
+├── pickup/
+│   ├── page.tsx                      # Pickup session browser
+│   ├── create/page.tsx               # Create pickup session (organizer whitelist only)
+│   └── [slug]/
+│       ├── layout.tsx                # Fetches session + user, provides PickupProvider
+│       ├── page.tsx                  # Session detail + roster
+│       ├── register/page.tsx         # Position-based signup (guest or auth)
+│       ├── attendance/page.tsx       # Take attendance (organizer only)
+│       ├── lineups/page.tsx          # Auto-generate balanced lineups per series
+│       ├── scoreboard/page.tsx       # Public live scoreboard (Supabase Realtime)
+│       └── scorekeeper/page.tsx      # Tablet-optimized live scoring (organizer only)
+├── api/                              # Tournament + pickup REST endpoints
 └── auth/callback/route.ts            # Google OAuth callback
 ```
 
 ### Data Layer
 - **ORM:** Drizzle ORM with schema at `src/lib/db/schema.ts`
-- **Queries:** `src/lib/db/queries.ts`
-- **8 tables:** tournaments, pods, pool_matches, pool_standings, bracket_teams, bracket_matches, tournament_roles, organizer_whitelist
-- **Migrations:** 5 phases completed; run via `db:push` or the `/api/run-migration-5` utility endpoint
+- **Queries:** `src/lib/db/queries.ts` (tournaments) + `src/lib/db/pickup-queries.ts` (pickup)
+- **13 tables:** tournaments, pods, pool_matches, pool_standings, bracket_teams, bracket_matches, tournament_roles, organizer_whitelist, pickup_sessions, pickup_registrations, pickup_series, pickup_games, pickup_player_stats
+- **Migrations:** `db:push` has a known bug with check constraints — use direct SQL. The established pattern for one-off prod migrations is a `scripts/*.ts` script using the existing `db` client. Example: `npx tsx --env-file=.env.local scripts/<name>.ts`. See `scripts/apply-migration.ts` as the template.
 
 ### Auth
 - **Client:** `src/lib/auth/client.ts` (browser), `src/lib/auth/server.ts` (server)
@@ -85,14 +96,19 @@ src/app/
 - **Auth context:** `src/contexts/auth-context.tsx` — `AuthProvider` wraps root layout; exposes `user`, `isLoading`, `signIn(redirectPath?)`, `signOut()` via `useAuth()` hook
 - **Sign-in flow:** `signIn()` stores intended path in `sessionStorage`, sets `redirectTo` to just `/auth/callback` (no query params — avoids Supabase URL allowlist issues)
 - **Navigation auth:** `src/components/navigation.tsx` uses `useAuth()` — do not manage auth state independently in this component. Sign In button renders when `!isLoading && !user`; guard with `isLoading` to avoid flash of wrong state.
+- **Production auth is Google OAuth only.** Email/password is intentionally not a public sign-in path. The sign-in page does render a `<form>` for email + password, but only when `NEXT_PUBLIC_ENABLE_TEST_LOGIN === "true"` — this is for local testing against seeded users (`test1@test.com`…`test13@test.com` / `test123`). Do not add email/password to the main auth flow without an explicit product decision. Do not set `NEXT_PUBLIC_ENABLE_TEST_LOGIN` in any deployed environment.
 
 ### Tournament Context
-`src/contexts/tournament-context.tsx` — provides `tournament`, `userRole`, `isOrganizer`, `isParticipant` to all `[slug]` pages client-side.
+`src/contexts/tournament-context.tsx` — provides `tournament`, `userRole`, `isOrganizer`, `isParticipant` to all tournament `[slug]` pages client-side.
+
+### Pickup Context
+`src/contexts/pickup-context.tsx` — `PickupProvider` + `usePickup()` hook. Provides `session`, `userRegistration`, `isOrganizer`, `isLoading` to all pickup `[slug]` pages.
 
 ---
 
 ## Database Schema (Key Tables)
 
+### Tournaments
 | Table | Purpose |
 |---|---|
 | `tournaments` | Core tournament entity. Has slug, status, scoring rules (JSON), format config |
@@ -102,11 +118,22 @@ src/app/
 | `bracket_teams` | Composite teams formed after pool play (2 teams for pod_3, 4 teams for pod_2, etc.) |
 | `bracket_matches` | Bracket games (winners/losers/championship) |
 | `tournament_roles` | User roles per tournament: organizer or participant |
-| `organizer_whitelist` | Controls who can create tournaments |
+| `organizer_whitelist` | Controls who can create tournaments and pickup sessions |
+
+### Pickup Games
+| Table | Purpose |
+|---|---|
+| `pickup_sessions` | Core pickup session entity. Slug, date, position limits (JSON), scoring rules (JSON), `is_test` flag |
+| `pickup_registrations` | Per-player sign-ups by position. `user_id` nullable for guests; auto-promotes waitlist on cancel |
+| `pickup_series` | Generated lineups per series — `teamAPlayerIds`, `teamBPlayerIds`, `benchPlayerIds`, series win counts |
+| `pickup_games` | Per-game scores within a series (best-of-3 or best-of-5) |
+| `pickup_player_stats` | Per-user per-session stats by position, written when a series completes |
 
 **Tournament Types:** `pod_2`, `pod_3`, `set_teams`
 **Bracket Styles:** `single_elimination`, `double_elimination`
 **Skill Levels:** C, B, A, Open
+**Pickup Series Formats:** `best_of_3`, `best_of_5`
+**Volleyball Positions:** setter, outside_hitter, middle_blocker, opposite, libero, defensive_specialist
 
 ---
 
@@ -114,23 +141,25 @@ src/app/
 
 | Page | Public | User (authed) | Organizer | Admin |
 |---|---|---|---|---|
-| Browse / Tournament Detail | ✅ | ✅ | ✅ | ✅ |
-| Standings / Schedule / Bracket | ✅ | ✅ | ✅ | ✅ |
-| Register | ✅ (if auth) | ✅ | ✅ | ✅ |
-| Scorekeeper | ❌ | ❌ | ✅ | ✅ |
-| Settings | ❌ | ❌ | ✅ | ✅ |
-| Create Tournament | ❌ | ❌ | ✅ (whitelist) | ✅ |
-| See test tournaments | ❌ | ❌ | ❌ | ✅ |
+| Browse / Tournament Detail / Pickup Detail | ✅ | ✅ | ✅ | ✅ |
+| Standings / Schedule / Bracket / Pickup Scoreboard | ✅ | ✅ | ✅ | ✅ |
+| Register (tournament or pickup) | ✅ (if auth) | ✅ | ✅ | ✅ |
+| Pickup Attendance | ❌ | ❌ | ✅ | ✅ |
+| Pickup Lineups | ❌ | ❌ | ✅ | ✅ |
+| Scorekeeper (tournament or pickup) | ❌ | ❌ | ✅ | ✅ |
+| Settings (tournament or pickup) | ❌ | ❌ | ✅ | ✅ |
+| Create Tournament / Create Pickup Session | ❌ | ❌ | ✅ (whitelist) | ✅ |
+| See test tournaments / test sessions | ❌ | ❌ | ❌ | ✅ |
 
 **Role definitions:**
-- **Organizer** — in `organizer_whitelist` (`is_admin = false`). Can create tournaments.
-- **Admin** — in `organizer_whitelist` with `is_admin = true`. Superset of organizer; also sees test tournaments. Set via direct SQL update.
+- **Organizer** — in `organizer_whitelist` (`is_admin = false`). Can create tournaments and pickup sessions.
+- **Admin** — in `organizer_whitelist` with `is_admin = true`. Superset of organizer; also sees test tournaments and test pickup sessions. Set via direct SQL update.
 
-**Test tournaments:** Set `is_test = true` on a tournament row to hide it from everyone except admins. Defaults to `false` so all existing tournaments are unaffected. The create tournament form includes an admin-only "Test tournament" checkbox (amber-styled, only rendered when `isAdmin=true` is passed as a prop). Server-side: `POST /api/tournaments` ignores `isTest: true` from non-admins. `isAdmin` status is determined by `isAdminUser()` from `src/lib/db/queries.ts`.
+**Test entities:** Set `is_test = true` on either a `tournaments` row or a `pickup_sessions` row to hide it from everyone except admins. Defaults to `false`. Both create forms include an admin-only "Test" checkbox (amber-styled, only rendered when `isAdmin=true` is passed as a prop). Server-side: `POST /api/tournaments` and `POST /api/pickup` both ignore `isTest: true` from non-admins. `isAdmin` status is determined by `isAdminUser()` from `src/lib/db/queries.ts`.
 
-> **Nav behavior:** `navigation.tsx` uses `useAuth()` — do not manage auth state independently in this component. Shows a Sign In button when `!isLoading && !user`. "Create Tournament" appears in the mobile drawer only for whitelisted organizers (`isWhitelisted = true` from `/api/user/whitelist`). The create page also enforces whitelist authorization server-side and redirects unauthorized users to `/tournaments?error=not_authorized`.
+> **Nav behavior:** `navigation.tsx` uses `useAuth()` — do not manage auth state independently in this component. Shows a Sign In button when `!isLoading && !user`. "Create Tournament" and "Create Pickup Session" appear in the mobile drawer only for whitelisted organizers (`isWhitelisted = true` from `/api/user/whitelist`). The create pages also enforce whitelist authorization server-side and redirect unauthorized users.
 
-> **Schema migrations:** `db:push` has a known bug with check constraints on this schema — use direct SQL via Supabase MCP instead.
+> **Schema migrations:** `db:push` has a known bug with check constraints on this schema. The established pattern is to write a one-off `scripts/*.ts` migration script that executes raw SQL via the existing Drizzle `db` client, then run it with `npx tsx --env-file=.env.local scripts/<name>.ts`. The Supabase MCP server exists but its OAuth flow is unreliable on the Windows dev setup — direct DB access via `DATABASE_URL` is the fallback and works reliably.
 
 ---
 
@@ -165,11 +194,23 @@ Winners bracket games played all before losers games. Reordered to interleave: W
 - **6-team**: 4-column layout with W-R1 / W-SF / W-Final / Championship and matching losers columns
 - `pod3Id` null guard throughout `bracket-display`, `bracket-standings`, `bracket-team-cards`
 
+### ✅ Pickup feature 500ing on prod — RESOLVED
+Pickup pages and `/api/pickup` returned 500 after the Phases 1–7 merge. Root cause: two Supabase SQL migrations (`estimated_end_time TEXT` and `is_test BOOLEAN NOT NULL DEFAULT false` on `pickup_sessions`) never ran on prod. `pickup-queries.ts:29` unconditionally filters on `isTest`, so every read threw. Applied via `scripts/apply-pickup-migration.ts` (one-shot tsx script using the existing Drizzle `db` client). Inspection-first: `scripts/inspect-pickup-schema.ts` confirmed the column gaps before any ALTER.
+
+### ✅ Pickup scorekeeper UX — RESOLVED
+Pickup scorekeeper was rendered in the default Navigation + Footer layout with small score panels and a redundant team-roster section. Rewrote `/pickup/[slug]/scorekeeper` to mirror the tournament scorekeeper: fullscreen dark (`bg-gradient-to-br from-slate-900 to-slate-800`), no chrome, large tap-to-score panels via the shared `ScoreDisplay` component. Kept `SeriesScoreSummary` for the best-of-N pips/games strip — added `variant="dark"` prop to that component. Removed roster section. "End Game" button now gates on session scoring rules (`canEndGame()` mirrors tournament logic). Orphaned `pickup-score-panel.tsx` deleted.
+
 ### 🟡 Hardcoded tournament ID in `/api/registration-status`
 Needs to accept a `tournamentId` parameter instead of assuming ID = 1.
 
 ### 🟡 Payment step in registration not wired
 The multi-step registration form has a payment step but it's not connected to any payment processor.
+
+### 🟡 `.gitignore` overmatches `.env.local.example`
+`.env*` matches `.env.local.example` too, so the docs file requires `git add -f` every time it changes. Narrow to `.env*.local` with an explicit `!.env.local.example` exception.
+
+### 🟡 Pickup session settings page not built
+`src/app/pickup/[slug]/settings/page.tsx` is linked from session detail but not implemented. See `docs/pickup-games-progress.md` for the original spec.
 
 ---
 
@@ -249,6 +290,14 @@ Deletes all `is_test = true` tournaments and their cascade-linked child records.
 # Run via Supabase MCP or paste into Supabase SQL editor
 ```
 
+### One-off DB scripts (pattern)
+When a schema migration or admin operation needs to hit prod, write a script under `scripts/` that uses the existing Drizzle `db` client (`src/lib/db/index.ts`) and execute with `npx tsx --env-file=.env.local scripts/<name>.ts`. See `scripts/apply-migration.ts` as the template.
+
+Conventions established by past one-shot scripts (not all committed — some were deleted after running):
+- Inspect first, mutate second. Read schema/columns via `information_schema.columns` before any ALTER.
+- Use `IF NOT EXISTS` on additive operations so the script is idempotent.
+- For Supabase auth admin tasks (creating users, deleting users), use `@supabase/supabase-js` with `SUPABASE_SERVICE_ROLE_KEY`. Example pattern in past runs: `admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata })`.
+
 ---
 
 ## Development Workflow
@@ -273,6 +322,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY
 NEXT_PUBLIC_TURNSTILE_SITE_KEY    # Cloudflare CAPTCHA
 TURNSTILE_SECRET_KEY
 RESEND_API_KEY                    # Email service
+
+# Dev-only (do NOT set in prod):
+SUPABASE_SERVICE_ROLE_KEY         # Admin scripts only (RLS bypass). From Dashboard → Project Settings → API.
+NEXT_PUBLIC_ENABLE_TEST_LOGIN     # "true" reveals email/password form on /auth/signin. Local only.
 ```
 
 ### Webpack Config Note
@@ -316,8 +369,10 @@ RESEND_API_KEY                    # Email service
 ## Future Features (Backlog)
 
 - **TODO: Playwright E2E — "Run a Tournament" test** — parameterized by test tournament slug. Flow: (1) hit the Settings page → Generate Schedule → verify games appear on the Schedule page; (2) open the Scorekeeper and simulate completing every pool play game one by one; (3) after each game, verify the Standings page reflects correct W/L/point differential. Should use a dedicated `is_test = true` tournament so it can be reset between runs.
+- **TODO: Pickup E2E flow test** — sister to the tournament test. Cover signup-by-position → attendance → lineup generation → scorekeeper → stats write.
+- **TODO: Pickup session Settings page** — `src/app/pickup/[slug]/settings/page.tsx` is linked but not built.
 - **TODO: Auto-generate pool play schedule on tournament creation** — the schedule generator is now available via `POST /api/tournaments/[tournamentId]/generate-schedule` (UI in Settings). Could trigger automatically on creation or when registration closes.
-- User profiles with tournament history
+- User profiles with tournament history (pickup stats already wired in Phase 7)
 - Email notifications / announcements pipeline (Resend partially wired)
 - Payment integration for registration
 - Automated schedule generation from CSV upload
