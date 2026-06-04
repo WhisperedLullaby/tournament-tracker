@@ -1,17 +1,47 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
+import { createClient } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Suspense } from "react";
 
 function SignInContent() {
   const searchParams = useSearchParams();
   const { signIn } = useAuth();
+  const router = useRouter();
   const redirect = searchParams.get("redirect") || undefined;
+
+  const testLoginEnabled = process.env.NEXT_PUBLIC_ENABLE_TEST_LOGIN === "true";
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSignIn = () => {
     signIn(redirect);
+  };
+
+  const handlePasswordSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      router.push(redirect || "/");
+      router.refresh();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -44,6 +74,45 @@ function SignInContent() {
           </svg>
           Continue with Google
         </Button>
+
+        {testLoginEnabled && (
+          <div className="border-t pt-6 text-left">
+            <p className="mb-3 text-center text-xs uppercase tracking-wider text-muted-foreground">
+              Test login (dev only)
+            </p>
+            <form onSubmit={handlePasswordSignIn} className="space-y-3">
+              {error && (
+                <div className="rounded-md border border-destructive/50 bg-destructive/10 p-2 text-xs text-destructive">
+                  {error}
+                </div>
+              )}
+              <div className="space-y-1">
+                <Label htmlFor="test-email" className="text-xs">Email</Label>
+                <Input
+                  id="test-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="test1@test.com"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="test-password" className="text-xs">Password</Label>
+                <Input
+                  id="test-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" size="sm" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? "Signing in…" : "Sign in with password"}
+              </Button>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );
