@@ -8,8 +8,8 @@ import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PositionRoster } from "@/components/pickup/position-roster";
-import type { PickupRegistration } from "@/lib/db/schema";
-import { CalendarDays, MapPin, Users, Clock, Settings } from "lucide-react";
+import type { PickupRegistration, PickupPaymentInfo } from "@/lib/db/schema";
+import { CalendarDays, MapPin, Users, Clock, Settings, Wallet } from "lucide-react";
 import { formatPosition } from "@/lib/pickup/positions";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -24,6 +24,34 @@ function formatTime(hhmm: string): string {
   const period = h >= 12 ? "PM" : "AM";
   const hour = h % 12 || 12;
   return `${hour}:${m.toString().padStart(2, "0")} ${period}`;
+}
+
+function PaymentInfo({
+  paymentInfo,
+}: {
+  paymentInfo: PickupPaymentInfo | null;
+}) {
+  if (!paymentInfo) return null;
+
+  const { amountPerPerson, cash, venmo, zelle } = paymentInfo;
+  const hasMethod = cash || !!venmo || !!zelle;
+  if (amountPerPerson == null && !hasMethod) return null;
+
+  return (
+    <div className="mt-4 flex max-w-2xl flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border bg-card px-4 py-3 text-sm">
+      <span className="flex items-center gap-1.5 font-semibold">
+        <Wallet className="h-4 w-4 text-muted-foreground" />
+        {amountPerPerson != null ? `$${amountPerPerson} per player` : "Payment"}
+      </span>
+      {hasMethod && (
+        <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
+          {cash && <Badge variant="secondary">Cash</Badge>}
+          {venmo && <Badge variant="secondary">Venmo {venmo}</Badge>}
+          {zelle && <Badge variant="secondary">Zelle: {zelle}</Badge>}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function PickupSessionPage() {
@@ -140,6 +168,8 @@ export default function PickupSessionPage() {
               {session.description}
             </p>
           )}
+
+          <PaymentInfo paymentInfo={session.paymentInfo} />
         </div>
       </div>
 

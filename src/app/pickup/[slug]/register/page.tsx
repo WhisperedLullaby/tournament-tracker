@@ -167,21 +167,15 @@ export default function PickupRegisterPage() {
         <h1 className="mb-1 text-2xl font-bold">Sign Up</h1>
         <p className="mb-6 text-muted-foreground text-sm">{session.title}</p>
 
-        {/* Google sign-in prompt for guests */}
-        {!user && (
-          <div className="mb-6 rounded-lg border bg-muted/40 p-4">
-            <p className="text-sm font-medium mb-1">Want stats on your profile?</p>
-            <p className="text-xs text-muted-foreground mb-3">
-              Sign in with Google to link this session to your account.
+        {!user ? (
+          <div className="rounded-lg border bg-muted/40 p-6 text-center">
+            <p className="mb-1 text-sm font-medium">Sign in to sign up</p>
+            <p className="mb-4 text-xs text-muted-foreground">
+              You need a Google account to register for this session.
             </p>
             <GoogleSignInButton redirectPath={`/pickup/${session.slug}/register`} />
-            <p className="mt-3 text-xs text-center text-muted-foreground">
-              or continue as a guest below
-            </p>
           </div>
-        )}
-
-        {success ? (
+        ) : success ? (
           <div className="rounded-lg border border-green-200 bg-green-50 p-6 text-center">
             <p className="font-medium text-green-800">{success}</p>
             <p className="mt-1 text-sm text-green-600">Redirecting you back…</p>

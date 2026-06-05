@@ -32,6 +32,12 @@ export function PickupCreationForm({ isAdmin = false }: { isAdmin?: boolean }) {
   const [endPoints, setEndPoints] = useState(25);
   const [cap, setCap] = useState(27);
   const [winByTwo, setWinByTwo] = useState(true);
+  const [amountPerPerson, setAmountPerPerson] = useState("");
+  const [acceptCash, setAcceptCash] = useState(false);
+  const [acceptVenmo, setAcceptVenmo] = useState(false);
+  const [venmoHandle, setVenmoHandle] = useState("");
+  const [acceptZelle, setAcceptZelle] = useState(false);
+  const [zelleHandle, setZelleHandle] = useState("");
   const [isTest, setIsTest] = useState(false);
   const [positionLimits, setPositionLimits] = useState<Record<string, number>>(
     { ...DEFAULT_POSITION_LIMITS }
@@ -80,6 +86,14 @@ export function PickupCreationForm({ isAdmin = false }: { isAdmin?: boolean }) {
           seriesFormat,
           positionLimits,
           scoringRules: { endPoints, cap, winByTwo },
+          paymentInfo: {
+            amountPerPerson: amountPerPerson.trim()
+              ? Number(amountPerPerson)
+              : null,
+            cash: acceptCash,
+            venmo: acceptVenmo && venmoHandle.trim() ? venmoHandle.trim() : null,
+            zelle: acceptZelle && zelleHandle.trim() ? zelleHandle.trim() : null,
+          },
           isTest,
         }),
       });
@@ -277,6 +291,94 @@ export function PickupCreationForm({ isAdmin = false }: { isAdmin?: boolean }) {
                 />
                 Required
               </label>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Payment</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Set the cost per player and how you&apos;d like to collect it. This
+            is shown to players on the session page.
+          </p>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="amountPerPerson">Amount per person</Label>
+            <div className="relative w-40">
+              <span className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm">
+                $
+              </span>
+              <Input
+                id="amountPerPerson"
+                type="number"
+                min={0}
+                step={1}
+                inputMode="numeric"
+                value={amountPerPerson}
+                onChange={(e) => setAmountPerPerson(e.target.value)}
+                placeholder="0"
+                className="pl-7"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <Label>Accepted payment methods</Label>
+
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={acceptCash}
+                onChange={(e) => setAcceptCash(e.target.checked)}
+                className="rounded"
+              />
+              Cash
+            </label>
+
+            <div className="space-y-2">
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={acceptVenmo}
+                  onChange={(e) => setAcceptVenmo(e.target.checked)}
+                  className="rounded"
+                />
+                Venmo
+              </label>
+              {acceptVenmo && (
+                <Input
+                  value={venmoHandle}
+                  onChange={(e) => setVenmoHandle(e.target.value)}
+                  placeholder="@your-venmo-username"
+                  className="max-w-xs"
+                  aria-label="Venmo username"
+                />
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={acceptZelle}
+                  onChange={(e) => setAcceptZelle(e.target.checked)}
+                  className="rounded"
+                />
+                Zelle
+              </label>
+              {acceptZelle && (
+                <Input
+                  value={zelleHandle}
+                  onChange={(e) => setZelleHandle(e.target.value)}
+                  placeholder="Email or phone for Zelle"
+                  className="max-w-xs"
+                  aria-label="Zelle email or phone"
+                />
+              )}
             </div>
           </div>
         </CardContent>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { pickupSessions } from "@/lib/db/schema";
+import { pickupSessions, type PickupPaymentInfo } from "@/lib/db/schema";
 import { createClient } from "@/lib/auth/server";
 import { isWhitelistedOrganizer, isAdminUser } from "@/lib/db/queries";
 import { getAllPickupSessions } from "@/lib/db/pickup-queries";
@@ -18,7 +18,32 @@ interface CreatePickupSessionData {
   seriesFormat: "best_of_3" | "best_of_5";
   positionLimits: Record<string, number>;
   scoringRules: { endPoints: number; cap: number; winByTwo: boolean };
+  paymentInfo?: PickupPaymentInfo;
   isTest?: boolean;
+}
+
+/**
+ * Normalize untrusted payment input into a clean PickupPaymentInfo, or null
+ * when the organizer supplied nothing usable. Amount is clamped to a
+ * non-negative integer; method handles are trimmed and dropped when blank.
+ */
+function sanitizePaymentInfo(
+  raw: PickupPaymentInfo | undefined
+): PickupPaymentInfo | null {
+  if (!raw) return null;
+
+  const amount =
+    typeof raw.amountPerPerson === "number" && Number.isFinite(raw.amountPerPerson)
+      ? Math.max(0, Math.round(raw.amountPerPerson))
+      : null;
+  const cash = raw.cash === true;
+  const venmo = typeof raw.venmo === "string" && raw.venmo.trim() ? raw.venmo.trim() : null;
+  const zelle = typeof raw.zelle === "string" && raw.zelle.trim() ? raw.zelle.trim() : null;
+
+  // Nothing meaningful was provided — store null rather than an empty shell.
+  if (amount === null && !cash && !venmo && !zelle) return null;
+
+  return { amountPerPerson: amount, cash, venmo, zelle };
 }
 
 export async function GET() {
@@ -67,6 +92,7 @@ export async function POST(request: NextRequest) {
       seriesFormat,
       positionLimits,
       scoringRules,
+      paymentInfo,
       isTest,
     } = body;
 
@@ -108,6 +134,7 @@ export async function POST(request: NextRequest) {
         seriesFormat,
         positionLimits,
         scoringRules,
+        paymentInfo: sanitizePaymentInfo(paymentInfo),
         isTest: isAdmin ? (isTest ?? false) : false,
         createdBy: user.id,
       })

@@ -247,6 +247,19 @@ export const pickupSeriesFormatEnum = pgEnum("pickup_series_format", [
   "best_of_5",
 ]);
 
+/**
+ * Payment details an organizer attaches to a pickup session. Stored as a JSON
+ * column so the set of accepted methods can grow without a schema migration.
+ * `amountPerPerson` is in whole dollars; method handles are null when the
+ * organizer does not accept that method.
+ */
+export interface PickupPaymentInfo {
+  amountPerPerson: number | null;
+  cash: boolean;
+  venmo: string | null;
+  zelle: string | null;
+}
+
 export const pickupSessions = pgTable("pickup_sessions", {
   id: serial("id").primaryKey(),
   slug: text("slug").notNull().unique(),
@@ -269,6 +282,7 @@ export const pickupSessions = pgTable("pickup_sessions", {
     cap: number;
     winByTwo: boolean;
   }>().notNull(),
+  paymentInfo: json("payment_info").$type<PickupPaymentInfo>(),
   currentSeriesNumber: integer("current_series_number").default(0).notNull(),
   isTest: boolean("is_test").default(false).notNull(),
   createdBy: text("created_by").notNull(),
