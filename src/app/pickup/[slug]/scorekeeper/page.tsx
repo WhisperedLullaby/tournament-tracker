@@ -4,15 +4,11 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { usePickup } from "@/contexts/pickup-context";
-import { Navigation } from "@/components/navigation";
-import { Footer } from "@/components/footer";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { PickupScorePanel } from "@/components/pickup/pickup-score-panel";
+import { ScoreDisplay } from "@/components/score-display";
 import { SeriesScoreSummary } from "@/components/pickup/series-score-summary";
-import type { PickupSeries, PickupGame, PickupRegistration } from "@/lib/db/schema";
-import { formatPosition } from "@/lib/pickup/positions";
-import { Trophy, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import type { PickupSeries, PickupGame } from "@/lib/db/schema";
+import { Trophy, ArrowLeft, CheckCircle } from "lucide-react";
 
 export default function PickupScorekeeperPage() {
   const { session, isOrganizer, isLoading } = usePickup();
@@ -20,24 +16,21 @@ export default function PickupScorekeeperPage() {
 
   const [series, setSeries] = useState<PickupSeries | null>(null);
   const [games, setGames] = useState<PickupGame[]>([]);
-  const [registrations, setRegistrations] = useState<PickupRegistration[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = useCallback(async () => {
-    const [seriesRes, regsRes] = await Promise.all([
-      fetch(`/api/pickup/${session.id}/series`),
-      fetch(`/api/pickup/${session.id}/registrations`),
-    ]);
+    const seriesRes = await fetch(`/api/pickup/${session.id}/series`);
     const seriesData = await seriesRes.json();
-    const regsData = await regsRes.json();
 
     const allSeries: PickupSeries[] = seriesData.series ?? [];
-    const activeSeries = allSeries.find((s) => s.status === "in_progress") ?? null;
+    const activeSeries =
+      allSeries.find((s) => s.status === "in_progress") ??
+      allSeries.find((s) => s.status === "completed") ??
+      null;
     setSeries(activeSeries);
-    setRegistrations(regsData.registrations ?? []);
 
     if (activeSeries) {
       const gRes = await fetch(
@@ -70,8 +63,6 @@ export default function PickupScorekeeperPage() {
     games.find((g) => g.status === "in_progress") ??
     games.find((g) => g.status === "pending") ??
     null;
-
-  const regMap = new Map(registrations.map((r) => [r.id, r]));
 
   async function handleScore(side: "A" | "B", delta: 1 | -1) {
     if (!series || !activeGame || saving) return;
@@ -149,198 +140,167 @@ export default function PickupScorekeeperPage() {
     }
   }
 
-  const isSeriesComplete = series?.status === "completed";
-  const gameCount = games.length;
-  const completedCount = games.filter((g) => g.status === "completed").length;
+  // Check whether the active game is eligible to be ended based on scoring rules
+  function canEndGame(): boolean {
+    if (!activeGame || activeGame.status !== "in_progress") return false;
+    const { teamAScore, teamBScore } = activeGame;
+    const max = Math.max(teamAScore, teamBScore);
+    const diff = Math.abs(teamAScore - teamBScore);
+    const rules = session.scoringRules;
+    const endPoints = rules?.endPoints ?? 25;
+    const cap = rules?.cap ?? 27;
+    const winByTwo = rules?.winByTwo !== false;
+    const winByTwoMet = !winByTwo || diff >= 2;
+    return (max >= endPoints && winByTwoMet) || max >= cap;
+  }
 
   if (isLoading || dataLoading) {
     return (
-      <div className="flex min-h-screen flex-col">
-        <Navigation />
-        <div className="flex flex-1 items-center justify-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        </div>
+      <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/40 border-t-white" />
       </div>
     );
   }
 
-  if (!series && !isSeriesComplete) {
+  if (!series) {
     return (
-      <div className="flex min-h-screen flex-col">
-        <Navigation />
-        <div className="container mx-auto flex flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
-          <p className="text-muted-foreground">No active series. Generate and start a series from the Lineups page.</p>
-          <Button asChild variant="outline">
-            <Link href={`/pickup/${session.slug}/lineups`}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Go to Lineups
-            </Link>
-          </Button>
-        </div>
-        <Footer />
+      <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 flex flex-col items-center justify-center gap-4 px-4 text-center">
+        <p className="text-white/80">
+          No active series. Generate and start a series from the Lineups page.
+        </p>
+        <Button asChild variant="outline">
+          <Link href={`/pickup/${session.slug}/lineups`}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Go to Lineups
+          </Link>
+        </Button>
       </div>
     );
   }
 
-  if (isSeriesComplete && series) {
+  const isSeriesComplete = series.status === "completed";
+
+  if (isSeriesComplete) {
     const winner = series.winningSide === "A" ? "Team A" : "Team B";
     return (
-      <div className="flex min-h-screen flex-col">
-        <Navigation />
-        <div className="container mx-auto flex flex-1 flex-col items-center justify-center gap-6 px-4 py-16 text-center">
-          <Trophy className="h-14 w-14 text-primary" />
-          <div>
-            <h2 className="text-2xl font-bold">{winner} wins!</h2>
-            <p className="mt-1 text-muted-foreground">
-              Series {series.seriesNumber} complete — {series.teamASeriesWins}–{series.teamBSeriesWins}
-            </p>
-          </div>
+      <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 flex flex-col items-center justify-center gap-6 px-4 py-8 text-center text-white">
+        <Trophy className="h-14 w-14 text-yellow-400" />
+        <div>
+          <h2 className="text-3xl font-bold">{winner} wins!</h2>
+          <p className="mt-1 text-white/70">
+            Series {series.seriesNumber} complete — {series.teamASeriesWins}–
+            {series.teamBSeriesWins}
+          </p>
+        </div>
+        <div className="w-full max-w-md">
           <SeriesScoreSummary
             games={games}
             teamASeriesWins={series.teamASeriesWins}
             teamBSeriesWins={series.teamBSeriesWins}
             seriesFormat={session.seriesFormat}
+            variant="dark"
           />
-          <div className="flex gap-3">
-            <Button asChild variant="outline">
-              <Link href={`/pickup/${session.slug}/lineups`}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Lineups
-              </Link>
-            </Button>
-          </div>
         </div>
-        <Footer />
+        <Button asChild variant="outline">
+          <Link href={`/pickup/${session.slug}/lineups`}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Lineups
+          </Link>
+        </Button>
       </div>
     );
   }
 
-  if (!series) return null;
-
   const currentScore = activeGame
     ? { a: activeGame.teamAScore, b: activeGame.teamBScore }
     : { a: 0, b: 0 };
-
-  const teamAPlayers = series.teamAPlayerIds
-    .map((id) => regMap.get(id))
-    .filter(Boolean) as PickupRegistration[];
-  const teamBPlayers = series.teamBPlayerIds
-    .map((id) => regMap.get(id))
-    .filter(Boolean) as PickupRegistration[];
+  const gameCount = games.length;
+  const completedCount = games.filter((g) => g.status === "completed").length;
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Navigation />
+    <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 relative flex flex-col">
+      <Link
+        href={`/pickup/${session.slug}/lineups`}
+        className="absolute top-2 left-2 z-10 text-white/60 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10"
+        aria-label="Back to lineups"
+      >
+        <ArrowLeft className="w-5 h-5" />
+      </Link>
 
-      <div className="from-primary/10 via-background to-accent/10 border-b bg-gradient-to-br">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold">Series {series.seriesNumber}</h1>
-                <Badge variant="default">Live</Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">{session.title}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleEndSeries()}
-                disabled={saving}
-              >
-                End Series
-              </Button>
-            </div>
+      <button
+        onClick={() => handleEndSeries()}
+        disabled={saving}
+        className="absolute top-2 right-2 z-10 text-xs uppercase tracking-wide text-white/70 hover:text-white transition-colors px-3 py-1.5 rounded-lg border border-white/20 hover:bg-white/10 disabled:opacity-50"
+      >
+        End Series
+      </button>
+
+      <div className="flex-1 flex flex-col items-center justify-center px-2 sm:px-4 py-2 sm:py-4">
+        <div className="w-full max-w-5xl flex flex-col items-center gap-2 sm:gap-3">
+          <div className="text-center text-white">
+            <h1 className="text-xl sm:text-2xl font-bold">
+              Series {series.seriesNumber}
+              {activeGame && (
+                <span className="ml-3 text-white/60 font-normal">
+                  Game {activeGame.gameNumber} of {gameCount}
+                </span>
+              )}
+            </h1>
+            {completedCount > 0 && (
+              <p className="text-xs text-white/50 mt-0.5">
+                {completedCount} game{completedCount === 1 ? "" : "s"} completed
+              </p>
+            )}
           </div>
+
+          <div className="w-full max-w-md">
+            <SeriesScoreSummary
+              games={games}
+              teamASeriesWins={series.teamASeriesWins}
+              teamBSeriesWins={series.teamBSeriesWins}
+              seriesFormat={session.seriesFormat}
+              variant="dark"
+            />
+          </div>
+
+          {error && (
+            <div className="rounded-lg border border-red-400/40 bg-red-500/20 px-4 py-2 text-sm text-red-100">
+              {error}
+            </div>
+          )}
+
+          <div className="w-full grid grid-cols-2 gap-4 sm:gap-8 max-w-4xl">
+            <ScoreDisplay
+              teamName="Team A"
+              score={currentScore.a}
+              onIncrement={() => handleScore("A", 1)}
+              onDecrement={() => handleScore("A", -1)}
+              color="red"
+              disabled={saving || !activeGame}
+            />
+            <ScoreDisplay
+              teamName="Team B"
+              score={currentScore.b}
+              onIncrement={() => handleScore("B", 1)}
+              onDecrement={() => handleScore("B", -1)}
+              color="blue"
+              disabled={saving || !activeGame}
+            />
+          </div>
+
+          {activeGame && canEndGame() && (
+            <Button
+              onClick={handleEndGame}
+              disabled={saving}
+              size="lg"
+              className="bg-primary hover:bg-primary/90 text-white text-base sm:text-lg px-4 sm:px-6 py-4 sm:py-5"
+            >
+              <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
+              End Game {activeGame.gameNumber}
+            </Button>
+          )}
         </div>
       </div>
-
-      <div className="container mx-auto max-w-2xl px-4 py-4 space-y-4">
-        {error && (
-          <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {error}
-          </div>
-        )}
-
-        <SeriesScoreSummary
-          games={games}
-          teamASeriesWins={series.teamASeriesWins}
-          teamBSeriesWins={series.teamBSeriesWins}
-          seriesFormat={session.seriesFormat}
-        />
-
-        {activeGame && (
-          <div className="text-center text-sm text-muted-foreground">
-            Game {activeGame.gameNumber} of {gameCount}
-            {completedCount > 0 && ` • ${completedCount} completed`}
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-3">
-          <PickupScorePanel
-            label="Team A"
-            score={currentScore.a}
-            side="A"
-            onIncrement={() => handleScore("A", 1)}
-            onDecrement={() => handleScore("A", -1)}
-            disabled={saving || !activeGame}
-          />
-          <PickupScorePanel
-            label="Team B"
-            score={currentScore.b}
-            side="B"
-            onIncrement={() => handleScore("B", 1)}
-            onDecrement={() => handleScore("B", -1)}
-            disabled={saving || !activeGame}
-          />
-        </div>
-
-        {activeGame && (
-          <Button
-            className="w-full"
-            onClick={handleEndGame}
-            disabled={saving}
-          >
-            End Game {activeGame.gameNumber}
-          </Button>
-        )}
-
-        <div className="grid grid-cols-2 gap-4 pt-2">
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#9b6b6b]">
-              Team A
-            </p>
-            <ul className="space-y-1">
-              {teamAPlayers.map((r) => (
-                <li key={r.id} className="flex items-center justify-between text-sm">
-                  <span className="font-medium">{r.displayName}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {formatPosition(r.position)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#6b7c9b]">
-              Team B
-            </p>
-            <ul className="space-y-1">
-              {teamBPlayers.map((r) => (
-                <li key={r.id} className="flex items-center justify-between text-sm">
-                  <span className="font-medium">{r.displayName}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {formatPosition(r.position)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      <Footer />
     </div>
   );
 }

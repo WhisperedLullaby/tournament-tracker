@@ -1,6 +1,8 @@
 # Pickup Games Feature — Progress Document
 
 > Use this doc to resume work in a new session. It captures what's done, what's next, and known issues.
+>
+> **Status as of 2026-06-04:** All 7 phases shipped. All required DB migrations applied to prod. Scorekeeper UX redesigned for tablet use. Dev-only test login wired for local multi-user testing. Only remaining build work is the per-session Settings page.
 
 ---
 
@@ -152,20 +154,41 @@ Updates to `src/app/profile/page.tsx`:
 
 ## Known Issues / Future Work
 
-All original known issues resolved.
-| DB migration: `estimated_end_time` column | Needs running | Added to schema after initial migration. Run: `ALTER TABLE pickup_sessions ADD COLUMN estimated_end_time TEXT;` |
+- Per-session **Settings page** (`src/app/pickup/[slug]/settings/page.tsx`) is linked from the session detail but not implemented.
+- E2E Playwright coverage for the pickup flow does not exist yet.
 
 ---
 
-## DB Migrations Needed (run in Supabase SQL Editor)
+## DB Migrations — APPLIED to prod 2026-06-03
+
+Applied via `scripts/apply-pickup-migration.ts` (one-shot tsx script, since deleted from the working tree but the SQL is reproduced here for the record):
 
 ```sql
--- Phase 2 addition
-ALTER TABLE pickup_sessions ADD COLUMN estimated_end_time TEXT;
-
--- Known issues fix: is_test flag
-ALTER TABLE pickup_sessions ADD COLUMN is_test BOOLEAN DEFAULT false NOT NULL;
+ALTER TABLE pickup_sessions ADD COLUMN IF NOT EXISTS estimated_end_time TEXT;
+ALTER TABLE pickup_sessions ADD COLUMN IF NOT EXISTS is_test BOOLEAN NOT NULL DEFAULT false;
 ```
+
+The realtime publication for pickup tables was already in place at the time of the audit:
+
+```sql
+ALTER PUBLICATION supabase_realtime ADD TABLE pickup_games, pickup_series, pickup_sessions;
+```
+
+No outstanding pickup migrations.
+
+---
+
+## Local Multi-User Testing
+
+13 throwaway users (`test1@test.com`…`test13@test.com`, password `test123`) exist in prod `auth.users` for walking through the signup flow as many simultaneous players. They're seeded with `email_confirm: true` and have no Google identity attached.
+
+Site auth is Google OAuth only in production. To log in as the test users locally:
+
+1. Set `NEXT_PUBLIC_ENABLE_TEST_LOGIN=true` in `.env.local`.
+2. Restart the dev server (env vars only load at startup).
+3. `/auth/signin` now renders an email/password form under the Google button.
+
+The form only renders when the env var is the literal string `"true"`. Never set this in Vercel — it bakes into the client bundle at build time and would be discoverable on prod.
 
 ---
 
@@ -180,7 +203,7 @@ src/
     pickup/
       positions.ts                       — position labels, ordering, defaults
       lineup-generator.ts                — ✅ Phase 4
-      stats-writer.ts                    — TODO Phase 5
+      stats-writer.ts                    — ✅ Phase 5
   contexts/
     pickup-context.tsx                   — PickupProvider + usePickup()
   components/
@@ -191,9 +214,11 @@ src/
       position-selector.tsx              — registration position picker
       attendance-checklist.tsx           — ✅ Phase 3
       series-lineup-card.tsx             — ✅ Phase 4
-      pickup-score-panel.tsx             — TODO Phase 5
-      series-score-summary.tsx           — TODO Phase 5
+      series-score-summary.tsx           — ✅ Phase 5 (supports variant="dark" for tablet scorekeeper)
       pickup-scoreboard-client.tsx       — ✅ Phase 6
+      # pickup-score-panel.tsx           — REMOVED 2026-06-04; scorekeeper reuses shared ScoreDisplay
+  components/
+    score-display.tsx                    — shared by tournaments + pickup scorekeepers
   app/
     pickup/
       page.tsx                           — session listing
@@ -201,10 +226,10 @@ src/
       [slug]/
         layout.tsx                       — fetches session, wraps PickupProvider
         page.tsx                         — session detail + roster
-        register/page.tsx                — sign-up form
+        register/page.tsx                — sign-up form (Google sign-in prompt for guests)
         attendance/page.tsx              — ✅ Phase 3
         lineups/page.tsx                 — ✅ Phase 4
-        scorekeeper/page.tsx             — TODO Phase 5
+        scorekeeper/page.tsx             — ✅ Phase 5; redesigned 2026-06-04 to fullscreen tablet layout
         scoreboard/page.tsx              — ✅ Phase 6
         settings/page.tsx                — TODO (linked but not built)
     api/
@@ -223,11 +248,11 @@ src/
             generate/route.ts            — ✅ Phase 4
             [seriesId]/
               start/route.ts             — ✅ Phase 4
-              complete/route.ts          — TODO Phase 5
+              complete/route.ts          — ✅ Phase 5
               games/
                 [gameId]/
-                  score/route.ts         — TODO Phase 5
-                  complete/route.ts      — TODO Phase 5
+                  score/route.ts         — ✅ Phase 5
+                  complete/route.ts      — ✅ Phase 5
       user/
         pickup-stats/route.ts            — ✅ Phase 7
 ```
