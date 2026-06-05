@@ -12,7 +12,6 @@ import {
 import { and, eq, gt, sql } from "drizzle-orm";
 
 interface RegisterData {
-  email: string;
   displayName: string;
   position:
     | "setter"
@@ -53,12 +52,27 @@ export async function POST(
       );
     }
 
+    // Registration requires a signed-in account — guest sign-ups are not allowed.
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "You must be signed in to register for a session." },
+        { status: 401 }
+      );
+    }
+
     const body: RegisterData = await request.json();
-    const { email, displayName, position } = body;
+    const { displayName, position } = body;
+    // Email always comes from the authenticated account, never the request body.
+    const email = user.email ?? "";
 
     if (!email || !displayName || !position) {
       return NextResponse.json(
-        { error: "Missing required fields: email, displayName, position" },
+        { error: "Missing required fields: displayName, position" },
         { status: 400 }
       );
     }
@@ -72,29 +86,12 @@ export async function POST(
       );
     }
 
-    // Check for optional auth
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    // Duplicate check: authenticated users by userId, guests by email
-    if (user) {
-      const existing = await getUserPickupRegistration(user.id, id);
-      if (existing) {
-        return NextResponse.json(
-          { error: "You are already registered for this session." },
-          { status: 400 }
-        );
-      }
-    } else {
-      const existing = await getGuestPickupRegistration(email, id);
-      if (existing) {
-        return NextResponse.json(
-          { error: "This email is already registered for this session." },
-          { status: 400 }
-        );
-      }
+    const existing = await getUserPickupRegistration(user.id, id);
+    if (existing) {
+      return NextResponse.json(
+        { error: "You are already registered for this session." },
+        { status: 400 }
+      );
     }
 
     // Check position availability
@@ -113,7 +110,7 @@ export async function POST(
       .insert(pickupRegistrations)
       .values({
         sessionId: id,
-        userId: user?.id ?? null,
+        userId: user.id,
         email,
         displayName,
         position,

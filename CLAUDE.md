@@ -123,8 +123,8 @@ src/app/
 ### Pickup Games
 | Table | Purpose |
 |---|---|
-| `pickup_sessions` | Core pickup session entity. Slug, date, position limits (JSON), scoring rules (JSON), `is_test` flag |
-| `pickup_registrations` | Per-player sign-ups by position. `user_id` nullable for guests; auto-promotes waitlist on cancel |
+| `pickup_sessions` | Core pickup session entity. Slug, date, position limits (JSON), scoring rules (JSON), `payment_info` (JSON, nullable), `is_test` flag |
+| `pickup_registrations` | Per-player sign-ups by position. `user_id` nullable (legacy guest rows); new sign-ups require auth. Auto-promotes waitlist on cancel |
 | `pickup_series` | Generated lineups per series — `teamAPlayerIds`, `teamBPlayerIds`, `benchPlayerIds`, series win counts |
 | `pickup_games` | Per-game scores within a series (best-of-3 or best-of-5) |
 | `pickup_player_stats` | Per-user per-session stats by position, written when a series completes |
@@ -199,6 +199,12 @@ Pickup pages and `/api/pickup` returned 500 after the Phases 1–7 merge. Root c
 
 ### ✅ Pickup scorekeeper UX — RESOLVED
 Pickup scorekeeper was rendered in the default Navigation + Footer layout with small score panels and a redundant team-roster section. Rewrote `/pickup/[slug]/scorekeeper` to mirror the tournament scorekeeper: fullscreen dark (`bg-gradient-to-br from-slate-900 to-slate-800`), no chrome, large tap-to-score panels via the shared `ScoreDisplay` component. Kept `SeriesScoreSummary` for the best-of-N pips/games strip — added `variant="dark"` prop to that component. Removed roster section. "End Game" button now gates on session scoring rules (`canEndGame()` mirrors tournament logic). Orphaned `pickup-score-panel.tsx` deleted.
+
+### ✅ Pickup payment info — RESOLVED
+Pickup sessions now carry payment details. Added a nullable `payment_info` JSONB column to `pickup_sessions` (`PickupPaymentInfo` = `{ amountPerPerson: number | null, cash: boolean, venmo: string | null, zelle: string | null }`). Set on the create form (amount-per-person input + cash/venmo/zelle checkboxes; Venmo/Zelle reveal a handle input). `POST /api/pickup` sanitizes the input (`sanitizePaymentInfo`) — clamps amount to a non-negative integer, trims handles, stores null when nothing meaningful is provided. Displayed on the session detail page (`PaymentInfo` component) right after the description: amount as `$N per player` plus a badge per accepted method. Migration: `scripts/apply-payment-info-migration.ts`.
+
+### ✅ Pickup guest sign-up removed — RESOLVED
+Guest (unauthenticated) registration is no longer allowed. The register page (`/pickup/[slug]/register`) shows a Google sign-in card instead of the form when not signed in. `POST /api/pickup/[sessionId]/register` returns 401 for unauthenticated requests and always derives `email` from the authenticated account (never the request body). Legacy guest rows and the guest-cancel path in the DELETE handler are left intact.
 
 ### 🟡 Hardcoded tournament ID in `/api/registration-status`
 Needs to accept a `tournamentId` parameter instead of assuming ID = 1.
