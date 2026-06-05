@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://hewwopwincess.com"),
   title: "Hewwo Pwincess",
   description: "Tournament hub for you, Pwincess",
 };
