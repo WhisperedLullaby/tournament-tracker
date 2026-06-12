@@ -37,7 +37,8 @@ This file provides guidance to Claude Code when working with code in this reposi
 | UI | TailwindCSS v4 + shadcn/ui (Radix UI) |
 | Animations | framer-motion |
 | ORM | Drizzle ORM |
-| Database | Supabase PostgreSQL |
+| Validation | zod (API request bodies) |
+| Database | Supabase PostgreSQL (RLS enabled) |
 | Auth | Supabase Auth — Google OAuth 2.0 |
 | Email | Resend |
 | CAPTCHA | Cloudflare Turnstile |
@@ -63,7 +64,7 @@ src/app/
 │       ├── register/page.tsx         # Team registration
 │       ├── schedule/page.tsx         # Pool play schedule
 │       ├── standings/page.tsx        # Pool + bracket standings
-│       ├── scorekeeper/page.tsx      # Live scorekeeper (organizer only)
+│       ├── scorekeeper/page.tsx      # Live scorekeeper (any signed-in user)
 │       ├── bracket/page.tsx          # Bracket visualization
 │       └── settings/page.tsx         # Tournament settings (organizer only)
 ├── pickup/
@@ -72,7 +73,7 @@ src/app/
 │   └── [slug]/
 │       ├── layout.tsx                # Fetches session + user, provides PickupProvider
 │       ├── page.tsx                  # Session detail + roster
-│       ├── register/page.tsx         # Position-based signup (guest or auth)
+│       ├── register/page.tsx         # Position-based signup (auth required)
 │       ├── attendance/page.tsx       # Take attendance (organizer only)
 │       ├── lineups/page.tsx          # Auto-generate balanced lineups per series
 │       ├── scoreboard/page.tsx       # Public live scoreboard (Supabase Realtime)
@@ -86,6 +87,10 @@ src/app/
 - **Queries:** `src/lib/db/queries.ts` (tournaments) + `src/lib/db/pickup-queries.ts` (pickup)
 - **13 tables:** tournaments, pods, pool_matches, pool_standings, bracket_teams, bracket_matches, tournament_roles, organizer_whitelist, pickup_sessions, pickup_registrations, pickup_series, pickup_games, pickup_player_stats
 - **Migrations:** `db:push` has a known bug with check constraints — use direct SQL. The established pattern for one-off prod migrations is a `scripts/*.ts` script using the existing `db` client. Example: `npx tsx --env-file=.env.local scripts/<name>.ts`. See `scripts/apply-migration.ts` as the template.
+- **Security model (RLS):** RLS is enabled on **all 13 tables**. Browser-side Supabase access (PostgREST reads + Realtime) uses the public anon key, so it is constrained by RLS: public `SELECT` policies exist **only** on the 6 tables the browser reads/subscribes to (`pool_matches`, `bracket_matches`, `bracket_teams`, `pods`, `pickup_games`, `pickup_series`), and `anon`/`authenticated` have **no write grants**. `pods` exposes display columns only — `email` and `user_id` are not granted. **Invariant: never add a browser-side Supabase write, and never `select("*")` from `pods` in client code.** All writes go through server code (API routes), where Drizzle uses the `postgres` role over `DATABASE_URL` and bypasses RLS. Migration: `scripts/apply-rls-lockdown.ts`. See `docs/016_security_hardening.md`.
+- **Transactions & atomicity:** multi-step mutations run inside `db.transaction(...)` — pool standings (`updatePoolStandings`, an upsert keyed on the `pool_standings (tournament_id, pod_id)` unique constraint), bracket advancement (`advanceBracketTeams`), and pickup registration / waitlist promotion. Game completion is atomic via a conditional `UPDATE ... WHERE status = 'in_progress' RETURNING` so concurrent double-taps can't double-count.
+- **Constraints & indexes:** unique constraints on `pool_standings (tournament_id, pod_id)`, `bracket_matches (tournament_id, game_number)`, `tournament_roles (tournament_id, user_id, role)`, plus indexes on FK/filter columns. Declared in `schema.ts`; applied via `scripts/apply-schema-constraints.ts`.
+- **Connection pool:** `src/lib/db/index.ts` caps the postgres client (`max: 1`, `idle_timeout: 20`) so bursty serverless traffic doesn't exhaust the Supabase pooler.
 
 ### Auth
 - **Client:** `src/lib/auth/client.ts` (browser), `src/lib/auth/server.ts` (server)
@@ -96,6 +101,7 @@ src/app/
 - **Auth context:** `src/contexts/auth-context.tsx` — `AuthProvider` wraps root layout; exposes `user`, `isLoading`, `signIn(redirectPath?)`, `signOut()` via `useAuth()` hook
 - **Sign-in flow:** `signIn()` stores intended path in `sessionStorage`, sets `redirectTo` to just `/auth/callback` (no query params — avoids Supabase URL allowlist issues)
 - **Navigation auth:** `src/components/navigation.tsx` uses `useAuth()` — do not manage auth state independently in this component. Sign In button renders when `!isLoading && !user`; guard with `isLoading` to avoid flash of wrong state.
+- **API route guards:** `src/lib/auth/api-auth.ts` — `requireUser()` (any signed-in user) and `requireOrganizer(tournamentId)` (organizer role). Use these in API routes instead of re-inlining the `getUser()` + role-check boilerplate; both return either `{ user }` or `{ response }` (narrow with `"response" in result`). Request bodies are validated with zod schemas via `parseBody(request, schema)` from `src/lib/validation/api.ts`.
 - **Production auth is Google OAuth only.** Email/password is intentionally not a public sign-in path. The sign-in page does render a `<form>` for email + password, but only when `NEXT_PUBLIC_ENABLE_TEST_LOGIN === "true"` — this is for local testing against seeded users (`test1@test.com`…`test13@test.com` / `test123`). Do not add email/password to the main auth flow without an explicit product decision. Do not set `NEXT_PUBLIC_ENABLE_TEST_LOGIN` in any deployed environment.
 
 ### Tournament Context
@@ -124,7 +130,7 @@ src/app/
 | Table | Purpose |
 |---|---|
 | `pickup_sessions` | Core pickup session entity. Slug, date, position limits (JSON), scoring rules (JSON), `payment_info` (JSON, nullable), `is_test` flag |
-| `pickup_registrations` | Per-player sign-ups by position. `user_id` nullable (legacy guest rows); new sign-ups require auth. Auto-promotes waitlist on cancel |
+| `pickup_registrations` | Per-player sign-ups by position. `user_id` nullable (legacy guest rows); new sign-ups require auth. Cancel requires auth (own registration only); auto-promotes waitlist on cancel, in a transaction |
 | `pickup_series` | Generated lineups per series — `teamAPlayerIds`, `teamBPlayerIds`, `benchPlayerIds`, series win counts |
 | `pickup_games` | Per-game scores within a series (best-of-3 or best-of-5) |
 | `pickup_player_stats` | Per-user per-session stats by position, written when a series completes |
@@ -225,8 +231,8 @@ The multi-step registration form has a payment step but it's not connected to an
 ### 🟡 `.gitignore` overmatches `.env.local.example`
 `.env*` matches `.env.local.example` too, so the docs file requires `git add -f` every time it changes. Narrow to `.env*.local` with an explicit `!.env.local.example` exception.
 
-### 🟡 Pickup session settings page not built
-`src/app/pickup/[slug]/settings/page.tsx` is linked from session detail but not implemented. See `docs/pickup-games-progress.md` for the original spec.
+### ✅ Pickup session settings page — RESOLVED
+`src/app/pickup/[slug]/settings/page.tsx` is implemented (organizer-gated): edit title/location/description/times, series format, scoring rules, and per-position limits, plus a delete action. Saves via `PATCH /api/pickup/[sessionId]`.
 
 ---
 
@@ -299,6 +305,12 @@ npx tsx --env-file=.env.local scripts/generate-pool-schedule.ts <slug> [--force]
 
 **The same algorithm is also exposed via `POST /api/tournaments/[tournamentId]/generate-schedule`**, which the Tournament Settings page uses. Organizer-auth required. Body: `{ targetGames?, minutesPerGame?, force? }`. Returns `{ gamesCreated, podsCount, clearedExisting }` or a descriptive error. A `GET` to that endpoint returns `{ existingCount }` for the current match count.
 
+### `scripts/apply-rls-lockdown.ts`
+Locks down the database: enables RLS on all 13 tables, adds public `SELECT` policies only on the browser-read tables, revokes anon/authenticated write grants, and exposes `pods` via a column-level grant that excludes `email`/`user_id`. Idempotent, inspect-first. **Already applied to prod.** See the Security model note under Data Layer and `docs/016_security_hardening.md`.
+
+### `scripts/apply-schema-constraints.ts`
+Adds the unique constraints + indexes declared in `schema.ts`. Inspect-first: reports duplicate rows, de-dupes the safe derived tables, and refuses to touch `bracket_matches` if it has duplicates. Idempotent. **Already applied to prod.**
+
 ### `scripts/delete-test-tournaments.sql`
 Deletes all `is_test = true` tournaments and their cascade-linked child records.
 
@@ -338,6 +350,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY
 NEXT_PUBLIC_TURNSTILE_SITE_KEY    # Cloudflare CAPTCHA
 TURNSTILE_SECRET_KEY
 RESEND_API_KEY                    # Email service
+CRON_SECRET                       # Bearer token guarding /api/cron/* (Vercel cron). Set in Vercel.
 
 # Dev-only (do NOT set in prod):
 SUPABASE_SERVICE_ROLE_KEY         # Admin scripts only (RLS bypass). From Dashboard → Project Settings → API.
@@ -357,6 +370,8 @@ NEXT_PUBLIC_ENABLE_TEST_LOGIN     # "true" reveals email/password form on /auth/
 - **Theme tokens are mandatory.** Always reach for the CSS custom properties defined in `src/app/globals.css` (`primary`, `accent`, `muted`, `destructive`, `success`, `danger`, `chart-1..5`, `muted-foreground`, `card`, `border`) and the Tailwind utilities that map onto them (`bg-primary`, `text-muted-foreground`, `bg-accent/20`, `text-success`, `text-danger`, etc.). Do not write raw Tailwind palette classes in product code — `text-gray-*`, `text-green-*`, `text-red-*`, `bg-yellow-*`, `bg-blue-*`, `bg-purple-*`, `border-slate-*` are all prohibited. The one deliberate exception is the gold/silver/bronze trophy palette on `bracket-team-cards.tsx` and `bracket-standings.tsx` (`yellow-500` / `slate-400` / `amber-700`), which is preserved because the medal metaphor reads more clearly in those specific colors than in any sage alternative; the 4th-place slot, which is not on the podium, uses `muted`. If a new use case feels like it needs a palette color, the answer is either (a) introduce a new semantic token in `globals.css` with a clear meaning (and WCAG-validate its contrast against `--background` and `--card` in both light and dark mode — see the `--success` / `--danger` definitions as the reference pattern), or (b) use an existing token. Never inline a palette class.
 - **DB queries:** Always scope queries by `tournamentId`. Never query across tournaments without intent.
 - **No hardcoded tournament IDs** in API routes — pass as parameter.
+- **API route auth + validation:** guard mutating routes with `requireUser` / `requireOrganizer` from `src/lib/auth/api-auth.ts`, and validate request bodies with zod via `parseBody` from `src/lib/validation/api.ts`. Never trust a client-supplied `userId`/identity — derive it from the session.
+- **No browser-side DB writes.** All writes go through API routes / server code (Drizzle). Browser Supabase is read-only (RLS-enforced) plus Realtime subscriptions. Never `select("*")` from `pods` client-side (`email`/`user_id` are not granted to the anon role).
 
 ---
 
@@ -369,6 +384,8 @@ NEXT_PUBLIC_ENABLE_TEST_LOGIN     # "true" reveals email/password form on /auth/
 | `011_google_oauth2.md` | Auth implementation |
 | `012_multi_tournament_platform.md` | Multi-tournament migration (9 phases) |
 | `014_multiple_tournament_types.md` | Tournament types, scoring rules, bracket config |
+| `016_security_hardening.md` | RLS lockdown, API auth, transactions, schema constraints |
+| `pickup-games-progress.md` | Pickup games feature (phases 1–7) |
 | `future_testing_strategy.md` | Testing approach (Playwright, Vitest, RTL) |
 
 ---
@@ -386,7 +403,6 @@ NEXT_PUBLIC_ENABLE_TEST_LOGIN     # "true" reveals email/password form on /auth/
 
 - **TODO: Playwright E2E — "Run a Tournament" test** — parameterized by test tournament slug. Flow: (1) hit the Settings page → Generate Schedule → verify games appear on the Schedule page; (2) open the Scorekeeper and simulate completing every pool play game one by one; (3) after each game, verify the Standings page reflects correct W/L/point differential. Should use a dedicated `is_test = true` tournament so it can be reset between runs.
 - **TODO: Pickup E2E flow test** — sister to the tournament test. Cover signup-by-position → attendance → lineup generation → scorekeeper → stats write.
-- **TODO: Pickup session Settings page** — `src/app/pickup/[slug]/settings/page.tsx` is linked but not built.
 - **TODO: Auto-generate pool play schedule on tournament creation** — the schedule generator is now available via `POST /api/tournaments/[tournamentId]/generate-schedule` (UI in Settings). Could trigger automatically on creation or when registration closes.
 - User profiles with tournament history (pickup stats already wired in Phase 7)
 - Email notifications / announcements pipeline (Resend partially wired)
