@@ -234,6 +234,13 @@ The multi-step registration form has a payment step but it's not connected to an
 ### ✅ Pickup session settings page — RESOLVED
 `src/app/pickup/[slug]/settings/page.tsx` is implemented (organizer-gated): edit title/location/description/times, series format, scoring rules, and per-position limits, plus a delete action. Saves via `PATCH /api/pickup/[sessionId]`.
 
+### ✅ Pickup in-session UX gaps (nav, roster, series delete) — RESOLVED
+Four issues reported from the first live pickup session, all fixed:
+1. **No way back to `/pickup`** — the pickup (and tournament) section nav replaced the base nav entirely. Added "All Sessions" → `/pickup` and "All Tournaments" → `/tournaments` items in `navigation.tsx`, plus a back-arrow on the public scoreboard (`pickup-scoreboard-client.tsx`, links to the session page).
+2. **Series couldn't be deleted** — new `DELETE /api/pickup/[sessionId]/series/[seriesId]` (organizer-only). Games cascade via FK; `currentSeriesNumber` is re-synced to the max remaining series number in the same transaction. **Completed series are not deletable** — their results are already written to `pickup_player_stats`. UI: trash icon + inline confirm on `SeriesLineupCard` (lineups page).
+3. **Roster showed all positions as "Open" once in progress** — attendance flips registration status to `attended`/`no_show`, but `position-roster.tsx` and the session page header only counted `registered`. Both now count `registered` OR `attended` as filling a spot.
+4. **No link to the scorekeeper** — added an organizer-only "Scorekeeper" item to the pickup section nav (via new `usePickupOptional()` hook in `pickup-context.tsx`, which returns null outside the provider so Navigation can call it everywhere), an "Open Scorekeeper" button on the session page (organizer, status attendance/active), and one on the lineups page when a series is in progress.
+
 ---
 
 ## Animations
@@ -329,6 +336,16 @@ Conventions established by past one-shot scripts (not all committed — some wer
 ---
 
 ## Development Workflow
+
+### Branching & PRs
+
+Branch names follow **`<type>/AA-<short-kebab-description>`**:
+
+- `<type>` is exactly one of **`feature/`** (new functionality), **`bugfix/`** (fixing broken behavior), or **`chore/`** (docs, deps, config, refactors with no behavior change). Legacy variants in the repo history (`bugfixes/`, `fix/`, `upgrade/`, `temp/`, numbered `AA-01`) are deprecated — do not create new ones.
+- **`AA-`** always follows the type (the organizer's initials — not a ticket number; there is no numbering scheme).
+- The description is short kebab-case, agreed between user and Claude at branch creation. Examples: `feature/AA-pickup-tablet-scoring`, `bugfix/AA-pickup-session-ux`, `chore/AA-update-docs`.
+
+Claude Code worktree sessions auto-create `claude/<name>` branches — that naming is harness-controlled. **Rename to the convention before pushing or opening a PR**: `git branch -m claude/<name> <type>/AA-<description>` (and push under the new name). Merge to `main` via PR; Vercel auto-deploys `main`.
 
 ### Commands
 ```bash
