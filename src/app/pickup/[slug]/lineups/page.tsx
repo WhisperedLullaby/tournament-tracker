@@ -8,7 +8,8 @@ import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import { SeriesLineupCard } from "@/components/pickup/series-lineup-card";
 import type { PickupSeries, PickupRegistration } from "@/lib/db/schema";
-import { Shuffle, Play } from "lucide-react";
+import { Shuffle, Play, ClipboardList } from "lucide-react";
+import Link from "next/link";
 
 export default function LineupsPage() {
   const { session, isOrganizer, isLoading } = usePickup();
@@ -46,6 +47,7 @@ export default function LineupsPage() {
     isOrganizer && ["attendance", "active"].includes(session.status);
   const canStart =
     isOrganizer && currentSeries?.status === "pending";
+  const hasActiveSeries = seriesList.some((s) => s.status === "in_progress");
 
   async function handleGenerate() {
     setGenerating(true);
@@ -62,6 +64,19 @@ export default function LineupsPage() {
       }
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function handleDelete(seriesId: number) {
+    setError(null);
+    const res = await fetch(`/api/pickup/${session.id}/series/${seriesId}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error ?? "Failed to delete series");
+    } else {
+      await fetchData();
     }
   }
 
@@ -147,12 +162,23 @@ export default function LineupsPage() {
                 </Button>
               </div>
             )}
+            {isOrganizer && hasActiveSeries && (
+              <div className="flex justify-end">
+                <Button asChild variant="default">
+                  <Link href={`/pickup/${session.slug}/scorekeeper`}>
+                    <ClipboardList className="mr-2 h-4 w-4" />
+                    Open Scorekeeper
+                  </Link>
+                </Button>
+              </div>
+            )}
             {seriesList.map((s, i) => (
               <SeriesLineupCard
                 key={s.id}
                 series={s}
                 registrations={registrations}
                 isCurrent={i === 0}
+                onDelete={isOrganizer ? handleDelete : undefined}
               />
             ))}
           </div>

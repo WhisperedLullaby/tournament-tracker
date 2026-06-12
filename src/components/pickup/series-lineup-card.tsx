@@ -1,14 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { formatPosition } from "@/lib/pickup/positions";
 import type { PickupSeries, PickupRegistration } from "@/lib/db/schema";
-import { Users } from "lucide-react";
+import { Users, Trash2 } from "lucide-react";
 
 interface Props {
   series: PickupSeries;
   registrations: PickupRegistration[];
   isCurrent?: boolean;
+  onDelete?: (seriesId: number) => Promise<void>;
 }
 
 function PlayerList({
@@ -57,10 +60,26 @@ function PlayerList({
   );
 }
 
-export function SeriesLineupCard({ series, registrations, isCurrent }: Props) {
+export function SeriesLineupCard({ series, registrations, isCurrent, onDelete }: Props) {
   const isComplete = series.status === "completed";
   const teamAWon = series.winningSide === "A";
   const teamBWon = series.winningSide === "B";
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // Completed series feed player stats, so they can't be removed
+  const canDelete = !!onDelete && !isComplete;
+
+  async function handleDelete() {
+    if (!onDelete) return;
+    setDeleting(true);
+    try {
+      await onDelete(series.id);
+    } finally {
+      setDeleting(false);
+      setConfirmingDelete(false);
+    }
+  }
 
   return (
     <div className="rounded-xl border bg-card p-5 shadow-sm">
@@ -96,8 +115,45 @@ export function SeriesLineupCard({ series, registrations, isCurrent }: Props) {
                 ? "Completed"
                 : "Pending"}
           </Badge>
+          {canDelete && !confirmingDelete && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+              onClick={() => setConfirmingDelete(true)}
+              aria-label={`Delete series ${series.seriesNumber}`}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
+
+      {confirmingDelete && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2">
+          <p className="text-sm font-medium text-destructive">
+            Delete this series{series.status === "in_progress" ? " and its scores" : ""}?
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmingDelete(false)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-3">
         <PlayerList
