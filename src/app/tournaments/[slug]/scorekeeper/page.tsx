@@ -9,12 +9,14 @@ import { supabase } from "@/lib/supabase";
 import { adaptCombinedNamesToFirstNames } from "@/lib/utils/name-adapter";
 import type { PoolMatch, BracketMatch } from "@/lib/db/schema";
 import { useTournament } from "@/contexts/tournament-context";
+import { useAuth } from "@/contexts/auth-context";
 
 type GameMatch = PoolMatch | (BracketMatch & { isBracket: true });
 
 export default function TournamentScorekeeperPage() {
   const router = useRouter();
   const { tournament } = useTournament();
+  const { user, isLoading: authLoading, signIn } = useAuth();
   const [currentGame, setCurrentGame] = useState<GameMatch | null>(null);
   const [nextGame, setNextGame] = useState<GameMatch | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,10 +58,11 @@ export default function TournamentScorekeeperPage() {
       const isPoolComplete = totalCount > 0 && completedCount >= totalCount;
       setIsBracketPlay(isPoolComplete);
 
-      // Fetch all pods for team names
+      // Fetch all pods for team names. Select only display columns — never
+      // `email`/`user_id` (the anon API role has no SELECT grant on those).
       const { data: podsData, error: podsError } = await supabase
         .from("pods")
-        .select("*")
+        .select("id, name, team_name")
         .eq("tournament_id", tournament.id);
 
       if (podsError) {
@@ -450,6 +453,41 @@ export default function TournamentScorekeeperPage() {
     const winByTwoMet = !winByTwo || scoreDiff >= 2;
     return (maxScore >= endPoints && winByTwoMet) || maxScore >= cap;
   };
+
+  // Scorekeeping is gated to signed-in users. Any authenticated user may keep
+  // score (organizer, volunteer, or player) — this intentionally does NOT
+  // require organizer role. Anonymous visitors get a sign-in prompt.
+  if (authLoading) {
+    return (
+      <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-white/30 border-t-white" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <Trophy className="w-10 h-10 text-yellow-500" />
+        <h1 className="text-white text-2xl font-bold">Sign in to keep score</h1>
+        <p className="text-white/60 max-w-sm">
+          You need to be signed in to run the scoreboard for this tournament.
+        </p>
+        <button
+          onClick={() => signIn(`/tournaments/${tournament.slug}/scorekeeper`)}
+          className="mt-2 rounded-lg bg-white/10 px-5 py-2.5 font-medium text-white transition-colors hover:bg-white/20"
+        >
+          Continue with Google
+        </button>
+        <button
+          onClick={() => router.push(`/tournaments/${tournament.slug}`)}
+          className="text-sm text-white/50 transition-colors hover:text-white/80"
+        >
+          Back to tournament
+        </button>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

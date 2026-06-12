@@ -4,6 +4,8 @@ import {
   seedBracketMatches,
   isPoolPlayComplete,
 } from "@/lib/db/queries";
+import { requireOrganizer } from "@/lib/auth/api-auth";
+import { parseBody, tournamentIdBody } from "@/lib/validation/api";
 
 /**
  * POST /api/bracket/initialize
@@ -12,16 +14,13 @@ import {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Parse request body to get tournament ID
-    const body = await request.json();
-    const { tournamentId } = body;
+    const parsed = await parseBody(request, tournamentIdBody);
+    if ("response" in parsed) return parsed.response;
+    const { tournamentId } = parsed.data;
 
-    if (!tournamentId) {
-      return NextResponse.json(
-        { error: "Tournament ID is required" },
-        { status: 400 }
-      );
-    }
+    // Destructive setup — organizer only (scorekeepers cannot seed the bracket).
+    const auth = await requireOrganizer(tournamentId);
+    if ("response" in auth) return auth.response;
 
     // Check if pool play is complete
     const poolComplete = await isPoolPlayComplete(tournamentId);

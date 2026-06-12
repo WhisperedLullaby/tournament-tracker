@@ -49,7 +49,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 ## Architecture
 
 ### Routing
-Two top-level products: tournaments and pickup games. Tournament pages live under `/tournaments/[slug]/`; pickup pages mirror that pattern at `/pickup/[slug]/`. Legacy top-level routes (`/standings`, `/schedule`, etc.) still exist but are not the active implementation.
+Two top-level products: tournaments and pickup games. Tournament pages live under `/tournaments/[slug]/`; pickup pages mirror that pattern at `/pickup/[slug]/`.
 
 ```
 src/app/
@@ -146,7 +146,9 @@ src/app/
 | Register (tournament or pickup) | ✅ (if auth) | ✅ | ✅ | ✅ |
 | Pickup Attendance | ❌ | ❌ | ✅ | ✅ |
 | Pickup Lineups | ❌ | ❌ | ✅ | ✅ |
-| Scorekeeper (tournament or pickup) | ❌ | ❌ | ✅ | ✅ |
+| Tournament Scorekeeper (score/start/complete games) | ❌ | ✅ | ✅ | ✅ |
+| Bracket initialize / reset (tournament) | ❌ | ❌ | ✅ | ✅ |
+| Pickup Scorekeeper | ❌ | ❌ | ✅ | ✅ |
 | Settings (tournament or pickup) | ❌ | ❌ | ✅ | ✅ |
 | Create Tournament / Create Pickup Session | ❌ | ❌ | ✅ (whitelist) | ✅ |
 | See test tournaments / test sessions | ❌ | ❌ | ❌ | ✅ |
@@ -154,6 +156,8 @@ src/app/
 **Role definitions:**
 - **Organizer** — in `organizer_whitelist` (`is_admin = false`). Can create tournaments and pickup sessions.
 - **Admin** — in `organizer_whitelist` with `is_admin = true`. Superset of organizer; also sees test tournaments and test pickup sessions. Set via direct SQL update.
+
+> **Tournament scorekeeping is open to any signed-in user** (not organizer-only) — this is intentional, to support volunteers/players keeping score for larger tournaments. The six pool/bracket scoring routes (`games/start`, `games/[id]/score`, `games/[id]/complete`, and the `bracket/games/*` equivalents) require only authentication via `requireUser()`; the destructive `bracket/initialize` and `bracket/reset` routes require organizer role via `requireOrganizer()`. Both guards live in `src/lib/auth/api-auth.ts`. The tournament Scorekeeper page gates on a signed-in user (not `isOrganizer`). Pickup scorekeeping remains organizer-only (`isPickupOrganizer`).
 
 **Test entities:** Set `is_test = true` on either a `tournaments` row or a `pickup_sessions` row to hide it from everyone except admins. Defaults to `false`. Both create forms include an admin-only "Test" checkbox (amber-styled, only rendered when `isAdmin=true` is passed as a prop). Server-side: `POST /api/tournaments` and `POST /api/pickup` both ignore `isTest: true` from non-admins. `isAdmin` status is determined by `isAdminUser()` from `src/lib/db/queries.ts`.
 
@@ -204,10 +208,16 @@ Pickup scorekeeper was rendered in the default Navigation + Footer layout with s
 Pickup sessions now carry payment details. Added a nullable `payment_info` JSONB column to `pickup_sessions` (`PickupPaymentInfo` = `{ amountPerPerson: number | null, cash: boolean, venmo: string | null, zelle: string | null }`). Set on the create form (amount-per-person input + cash/venmo/zelle checkboxes; Venmo/Zelle reveal a handle input). `POST /api/pickup` sanitizes the input (`sanitizePaymentInfo`) — clamps amount to a non-negative integer, trims handles, stores null when nothing meaningful is provided. Displayed on the session detail page (`PaymentInfo` component) right after the description: amount as `$N per player` plus a badge per accepted method. Migration: `scripts/apply-payment-info-migration.ts`.
 
 ### ✅ Pickup guest sign-up removed — RESOLVED
-Guest (unauthenticated) registration is no longer allowed. The register page (`/pickup/[slug]/register`) shows a Google sign-in card instead of the form when not signed in. `POST /api/pickup/[sessionId]/register` returns 401 for unauthenticated requests and always derives `email` from the authenticated account (never the request body). Legacy guest rows and the guest-cancel path in the DELETE handler are left intact.
+Guest (unauthenticated) registration is no longer allowed. The register page (`/pickup/[slug]/register`) shows a Google sign-in card instead of the form when not signed in. `POST /api/pickup/[sessionId]/register` returns 401 for unauthenticated requests and always derives `email` from the authenticated account (never the request body). The DELETE (cancel) handler now also **requires authentication** and only cancels the caller's own registration — see "Pickup cancel auth hole" below.
 
-### 🟡 Hardcoded tournament ID in `/api/registration-status`
-Needs to accept a `tournamentId` parameter instead of assuming ID = 1.
+### ✅ Database lockdown — RLS + grants — RESOLVED
+RLS was disabled on 12/13 tables and the `anon` role held full write privileges, so anyone with the public anon key (shipped in the browser bundle) could read all PII and write/delete any row via PostgREST — including granting themselves admin in `organizer_whitelist`. Fixed by `scripts/apply-rls-lockdown.ts`: RLS enabled on all 13 tables; public SELECT policies only on the tables the browser reads/subscribes to (`pool_matches`, `bracket_matches`, `bracket_teams`, `pods`, `pickup_games`, `pickup_series`); all anon/authenticated write grants revoked; `pods` exposed via a column-level SELECT grant that excludes `email` and `user_id`. Server-side Drizzle (the `postgres` role over `DATABASE_URL`) bypasses RLS, so no server route was affected. **Invariant: never add a browser-side Supabase write, and never `select("*")` from `pods` in client code (the `email`/`user_id` columns are not granted).**
+
+### ✅ Tournament scoring/bracket API auth — RESOLVED
+The pool/bracket game routes had no authentication — anyone with the URL could score, complete, or wipe a live tournament. Added guards in `src/lib/auth/api-auth.ts`: the six scoring routes require a signed-in user (`requireUser`); `bracket/initialize` and `bracket/reset` require organizer role (`requireOrganizer`). Route bodies are validated with zod (`src/lib/validation/api.ts`). The Scorekeeper page now gates on a signed-in user.
+
+### ✅ Pickup cancel auth hole — RESOLVED
+The pickup-registration DELETE handler accepted an unauthenticated request with an email in the body and matched any row with that email, letting a stranger cancel another player's spot. Now requires authentication and derives identity from the session; the email-body path is removed. Delete + waitlist-promotion + renumber run in one transaction.
 
 ### 🟡 Payment step in registration not wired
 The multi-step registration form has a payment step but it's not connected to any payment processor.

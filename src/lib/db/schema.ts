@@ -9,6 +9,7 @@ import {
   varchar,
   unique,
   boolean,
+  index,
 } from "drizzle-orm/pg-core";
 
 // Enums for match status
@@ -123,6 +124,7 @@ export const pods = pgTable(
       table.userId,
       table.tournamentId
     ),
+    tournamentIdx: index("pods_tournament_id_idx").on(table.tournamentId),
   })
 );
 
@@ -144,23 +146,39 @@ export const poolMatches = pgTable("pool_matches", {
   status: matchStatusEnum("status").default("pending").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  tournamentStatusIdx: index("pool_matches_tournament_status_idx").on(
+    table.tournamentId,
+    table.status
+  ),
+}));
 
 // Pool standings table - tracks statistics for each pod
-export const poolStandings = pgTable("pool_standings", {
-  id: serial("id").primaryKey(),
-  tournamentId: integer("tournament_id")
-    .notNull()
-    .references(() => tournaments.id, { onDelete: "cascade" }), // Link to tournament
-  podId: integer("pod_id")
-    .notNull()
-    .references(() => pods.id),
-  wins: integer("wins").default(0).notNull(),
-  losses: integer("losses").default(0).notNull(),
-  pointsFor: integer("points_for").default(0).notNull(),
-  pointsAgainst: integer("points_against").default(0).notNull(),
-  // Point differential is calculated as pointsFor - pointsAgainst
-});
+export const poolStandings = pgTable(
+  "pool_standings",
+  {
+    id: serial("id").primaryKey(),
+    tournamentId: integer("tournament_id")
+      .notNull()
+      .references(() => tournaments.id, { onDelete: "cascade" }), // Link to tournament
+    podId: integer("pod_id")
+      .notNull()
+      .references(() => pods.id),
+    wins: integer("wins").default(0).notNull(),
+    losses: integer("losses").default(0).notNull(),
+    pointsFor: integer("points_for").default(0).notNull(),
+    pointsAgainst: integer("points_against").default(0).notNull(),
+    // Point differential is calculated as pointsFor - pointsAgainst
+  },
+  (table) => ({
+    // One standings row per pod per tournament — required for the upsert in
+    // updatePoolStandings (INSERT ... ON CONFLICT).
+    uniqueTournamentPod: unique("pool_standings_tournament_pod_unique").on(
+      table.tournamentId,
+      table.podId
+    ),
+  })
+);
 
 // Bracket teams table - the 3 teams formed after pool play
 export const bracketTeams = pgTable("bracket_teams", {
@@ -181,32 +199,56 @@ export const bracketTeams = pgTable("bracket_teams", {
 });
 
 // Bracket matches table - stores bracket play games (up to 5 games)
-export const bracketMatches = pgTable("bracket_matches", {
-  id: serial("id").primaryKey(),
-  tournamentId: integer("tournament_id")
-    .notNull()
-    .references(() => tournaments.id, { onDelete: "cascade" }), // Link to tournament
-  gameNumber: integer("game_number").notNull(), // 1-5
-  bracketType: bracketTypeEnum("bracket_type").notNull(),
-  teamAId: integer("team_a_id").references(() => bracketTeams.id),
-  teamBId: integer("team_b_id").references(() => bracketTeams.id),
-  teamAScore: integer("team_a_score").default(0).notNull(),
-  teamBScore: integer("team_b_score").default(0).notNull(),
-  status: matchStatusEnum("status").default("pending").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const bracketMatches = pgTable(
+  "bracket_matches",
+  {
+    id: serial("id").primaryKey(),
+    tournamentId: integer("tournament_id")
+      .notNull()
+      .references(() => tournaments.id, { onDelete: "cascade" }), // Link to tournament
+    gameNumber: integer("game_number").notNull(), // 1-5
+    bracketType: bracketTypeEnum("bracket_type").notNull(),
+    teamAId: integer("team_a_id").references(() => bracketTeams.id),
+    teamBId: integer("team_b_id").references(() => bracketTeams.id),
+    teamAScore: integer("team_a_score").default(0).notNull(),
+    teamBScore: integer("team_b_score").default(0).notNull(),
+    status: matchStatusEnum("status").default("pending").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    // Advancement (setSlot) addresses matches by (tournament, game number); a
+    // duplicate would silently corrupt the bracket, so enforce uniqueness.
+    uniqueTournamentGame: unique("bracket_matches_tournament_game_unique").on(
+      table.tournamentId,
+      table.gameNumber
+    ),
+  })
+);
 
 // Tournament roles table - tracks user roles in each tournament
-export const tournamentRoles = pgTable("tournament_roles", {
-  id: serial("id").primaryKey(),
-  tournamentId: integer("tournament_id")
-    .notNull()
-    .references(() => tournaments.id, { onDelete: "cascade" }), // Delete roles when tournament deleted
-  userId: text("user_id").notNull(), // Supabase auth user ID
-  role: tournamentRoleEnum("role").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const tournamentRoles = pgTable(
+  "tournament_roles",
+  {
+    id: serial("id").primaryKey(),
+    tournamentId: integer("tournament_id")
+      .notNull()
+      .references(() => tournaments.id, { onDelete: "cascade" }), // Delete roles when tournament deleted
+    userId: text("user_id").notNull(), // Supabase auth user ID
+    role: tournamentRoleEnum("role").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    // A user holds a given role in a tournament at most once.
+    uniqueTournamentUserRole: unique("tournament_roles_tournament_user_role_unique").on(
+      table.tournamentId,
+      table.userId,
+      table.role
+    ),
+    // getUserTournaments / getOrganizerTournaments filter by userId alone.
+    userIdx: index("tournament_roles_user_id_idx").on(table.userId),
+  })
+);
 
 // Organizer whitelist table - controls who can create tournaments
 export const organizerWhitelist = pgTable("organizer_whitelist", {
@@ -314,6 +356,10 @@ export const pickupRegistrations = pgTable(
       table.userId,
       table.sessionId
     ),
+    sessionStatusIdx: index("pickup_registrations_session_status_idx").on(
+      table.sessionId,
+      table.status
+    ),
   })
 );
 
@@ -332,7 +378,9 @@ export const pickupSeries = pgTable("pickup_series", {
   winningSide: text("winning_side"), // "A" | "B" | null
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  sessionIdx: index("pickup_series_session_id_idx").on(table.sessionId),
+}));
 
 export const pickupGames = pgTable("pickup_games", {
   id: serial("id").primaryKey(),
@@ -348,7 +396,9 @@ export const pickupGames = pgTable("pickup_games", {
   status: matchStatusEnum("status").default("pending").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  seriesIdx: index("pickup_games_series_id_idx").on(table.seriesId),
+}));
 
 export const pickupPlayerStats = pgTable(
   "pickup_player_stats",

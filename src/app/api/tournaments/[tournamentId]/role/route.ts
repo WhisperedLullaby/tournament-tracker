@@ -11,21 +11,17 @@ export async function GET(
 ) {
   try {
     const { tournamentId } = await params;
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
 
-    // Get current user from session if userId not provided
-    let currentUserId = userId;
-    if (!currentUserId) {
-      const supabase = await createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        return NextResponse.json({ role: null });
-      }
-      currentUserId = user.id;
+    // Always derive identity from the session — never trust a client-supplied
+    // userId. (A query param here would let any caller read another user's role.)
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ role: null });
     }
+    const currentUserId = user.id;
 
     // Check if tournamentId is numeric (ID) or a slug
     let tournamentIdNum: number;

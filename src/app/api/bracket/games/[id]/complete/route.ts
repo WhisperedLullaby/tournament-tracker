@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { bracketMatches, tournaments } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { advanceBracketTeams } from "@/lib/db/queries";
+import { requireUser } from "@/lib/auth/api-auth";
 
 /**
  * POST /api/bracket/games/[id]/complete
@@ -13,6 +14,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Scorekeeping is open to any signed-in user (organizer, volunteer, player).
+    const auth = await requireUser();
+    if ("response" in auth) return auth.response;
+
     const { id } = await params;
     const gameId = parseInt(id);
 
@@ -92,14 +97,25 @@ export async function POST(
     const winnerId = teamAScore > teamBScore ? game.teamAId : game.teamBId;
     const loserId = teamAScore > teamBScore ? game.teamBId : game.teamAId;
 
-    // Mark game as complete
-    await db
+    // Atomically flip in_progress → completed. Only the request that performs
+    // the transition advances teams, so concurrent completes can't double-advance.
+    const [completed] = await db
       .update(bracketMatches)
       .set({
         status: "completed",
         updatedAt: new Date(),
       })
-      .where(eq(bracketMatches.id, gameId));
+      .where(
+        and(eq(bracketMatches.id, gameId), eq(bracketMatches.status, "in_progress"))
+      )
+      .returning();
+
+    if (!completed) {
+      return NextResponse.json(
+        { error: "Game is no longer in progress" },
+        { status: 409 }
+      );
+    }
 
     // Advance teams to next round
     await advanceBracketTeams(
