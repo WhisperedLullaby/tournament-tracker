@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePickup } from "@/contexts/pickup-context";
 import { Navigation } from "@/components/navigation";
@@ -55,19 +55,64 @@ function PaymentInfo({
 }
 
 export default function PickupSessionPage() {
-  const { session, isOrganizer, userRegistration, isLoading } = usePickup();
+  const { session, isOrganizer, userRegistration, isLoading, refreshRegistration } =
+    usePickup();
   const [registrations, setRegistrations] = useState<PickupRegistration[]>([]);
   const [regsLoading, setRegsLoading] = useState(true);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const [confirmingWithdraw, setConfirmingWithdraw] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+
+  const fetchRegistrations = useCallback(async () => {
+    const r = await fetch(`/api/pickup/${session.id}/registrations`);
+    const d = await r.json();
+    setRegistrations(d.registrations ?? []);
+  }, [session.id]);
 
   useEffect(() => {
-    fetch(`/api/pickup/${session.id}/registrations`)
-      .then((r) => r.json())
-      .then((d) => setRegistrations(d.registrations ?? []))
-      .finally(() => setRegsLoading(false));
-  }, [session.id]);
+    fetchRegistrations().finally(() => setRegsLoading(false));
+  }, [fetchRegistrations]);
 
   const canRegister =
     session.status === "upcoming" && !userRegistration;
+
+  // Removal is allowed until the session actually starts — the API rejects
+  // active/completed sessions, so mirror that here.
+  const removalOpen =
+    session.status === "upcoming" || session.status === "attendance";
+
+  const handleRemove = useCallback(
+    async (reg: PickupRegistration) => {
+      setRemoveError(null);
+      // Own registration goes through the self-cancel route; anyone else
+      // through the organizer route.
+      const isSelf = userRegistration?.id === reg.id;
+      const res = await fetch(
+        isSelf
+          ? `/api/pickup/${session.id}/register`
+          : `/api/pickup/${session.id}/registrations/${reg.id}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setRemoveError(data.error ?? "Removal failed. Please try again.");
+        return;
+      }
+      await Promise.all([fetchRegistrations(), refreshRegistration()]);
+    },
+    [session.id, userRegistration?.id, fetchRegistrations, refreshRegistration]
+  );
+
+  async function handleWithdraw() {
+    if (!userRegistration) return;
+    setIsWithdrawing(true);
+    try {
+      await handleRemove(userRegistration);
+      setConfirmingWithdraw(false);
+    } finally {
+      setIsWithdrawing(false);
+    }
+  }
 
   const registeredTotal = registrations.filter(
     (r) => r.status === "registered" || r.status === "attended"
@@ -162,6 +207,39 @@ export default function PickupSessionPage() {
                     : `You're registered as ${formatPosition(userRegistration.position)}`}
                 </div>
               )}
+              {userRegistration && removalOpen && !confirmingWithdraw && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={() => setConfirmingWithdraw(true)}
+                >
+                  Can&apos;t make it? Withdraw
+                </Button>
+              )}
+              {userRegistration && removalOpen && confirmingWithdraw && (
+                <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2">
+                  <span className="text-sm font-medium text-destructive">
+                    Withdraw from this session?
+                  </span>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={isWithdrawing}
+                    onClick={handleWithdraw}
+                  >
+                    {isWithdrawing ? "Withdrawing…" : "Withdraw"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={isWithdrawing}
+                    onClick={() => setConfirmingWithdraw(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
               {session.status === "active" && (
                 <Button variant="outline" asChild>
                   <Link href={`/pickup/${session.slug}/scoreboard`}>
@@ -185,6 +263,11 @@ export default function PickupSessionPage() {
       {/* Roster */}
       <div className="container mx-auto px-4 py-8">
         <h2 className="mb-4 text-xl font-semibold">Player Roster</h2>
+        {removeError && (
+          <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            {removeError}
+          </div>
+        )}
         {regsLoading || isLoading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -195,6 +278,11 @@ export default function PickupSessionPage() {
           <PositionRoster
             positionLimits={session.positionLimits}
             registrations={registrations}
+            canRemove={(reg) =>
+              removalOpen &&
+              (isOrganizer || (!!userRegistration && reg.id === userRegistration.id))
+            }
+            onRemove={handleRemove}
           />
         )}
       </div>

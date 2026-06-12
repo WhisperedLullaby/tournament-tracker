@@ -1,6 +1,12 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import type { PickupSession, PickupRegistration } from "@/lib/db/schema";
 
 interface PickupContextType {
@@ -8,6 +14,7 @@ interface PickupContextType {
   isOrganizer: boolean;
   userRegistration: PickupRegistration | null;
   isLoading: boolean;
+  refreshRegistration: () => Promise<void>;
 }
 
 const PickupContext = createContext<PickupContextType | undefined>(undefined);
@@ -27,32 +34,35 @@ export function PickupProvider({
 
   const isOrganizer = !!userId && session.createdBy === userId;
 
-  useEffect(() => {
-    async function fetchRegistration() {
-      if (!userId) {
-        setIsLoading(false);
-        return;
-      }
-      try {
-        const res = await fetch(`/api/pickup/${session.id}/registrations`);
-        if (res.ok) {
-          const data = await res.json();
-          const mine = (data.registrations as PickupRegistration[]).find(
-            (r) => r.userId === userId
-          );
-          setUserRegistration(mine ?? null);
-        }
-      } catch {
-        // ignore
-      } finally {
-        setIsLoading(false);
-      }
+  const refreshRegistration = useCallback(async () => {
+    if (!userId) {
+      setIsLoading(false);
+      return;
     }
-    fetchRegistration();
+    try {
+      const res = await fetch(`/api/pickup/${session.id}/registrations`);
+      if (res.ok) {
+        const data = await res.json();
+        const mine = (data.registrations as PickupRegistration[]).find(
+          (r) => r.userId === userId
+        );
+        setUserRegistration(mine ?? null);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsLoading(false);
+    }
   }, [session.id, userId]);
 
+  useEffect(() => {
+    refreshRegistration();
+  }, [refreshRegistration]);
+
   return (
-    <PickupContext.Provider value={{ session, isOrganizer, userRegistration, isLoading }}>
+    <PickupContext.Provider
+      value={{ session, isOrganizer, userRegistration, isLoading, refreshRegistration }}
+    >
       {children}
     </PickupContext.Provider>
   );

@@ -5,8 +5,9 @@ import { createClient } from "@/lib/auth/server";
 import {
   getPickupSessionById,
   getUserPickupRegistration,
+  removePickupRegistration,
 } from "@/lib/db/pickup-queries";
-import { and, count, eq, gt, sql } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import { parseBody, pickupRegisterBody } from "@/lib/validation/api";
 
 export async function POST(
@@ -218,62 +219,7 @@ export async function DELETE(
 
     // Delete + promote + renumber as one transaction so the waitlist can't be
     // left with a gap or a duplicated position on a partial failure.
-    await db.transaction(async (tx) => {
-      await tx
-        .delete(pickupRegistrations)
-        .where(eq(pickupRegistrations.id, existing.id));
-
-      // Promote next waitlisted player for this position if the withdrawn player had a confirmed spot
-      if (existing.status === "registered") {
-        const nextWaitlisted = await tx.query.pickupRegistrations.findFirst({
-          where: and(
-            eq(pickupRegistrations.sessionId, id),
-            eq(pickupRegistrations.position, existing.position),
-            eq(pickupRegistrations.status, "waitlisted")
-          ),
-          orderBy: [pickupRegistrations.waitlistPosition],
-        });
-
-        if (nextWaitlisted) {
-          await tx
-            .update(pickupRegistrations)
-            .set({ status: "registered", waitlistPosition: null, updatedAt: new Date() })
-            .where(eq(pickupRegistrations.id, nextWaitlisted.id));
-
-          // Renumber remaining waitlisted players for this position
-          await tx
-            .update(pickupRegistrations)
-            .set({
-              waitlistPosition: sql`${pickupRegistrations.waitlistPosition} - 1`,
-              updatedAt: new Date(),
-            })
-            .where(
-              and(
-                eq(pickupRegistrations.sessionId, id),
-                eq(pickupRegistrations.position, existing.position),
-                eq(pickupRegistrations.status, "waitlisted"),
-                gt(pickupRegistrations.waitlistPosition, nextWaitlisted.waitlistPosition!)
-              )
-            );
-        }
-      } else if (existing.status === "waitlisted") {
-        // Player was on waitlist — renumber everyone behind them
-        await tx
-          .update(pickupRegistrations)
-          .set({
-            waitlistPosition: sql`${pickupRegistrations.waitlistPosition} - 1`,
-            updatedAt: new Date(),
-          })
-          .where(
-            and(
-              eq(pickupRegistrations.sessionId, id),
-              eq(pickupRegistrations.position, existing.position),
-              eq(pickupRegistrations.status, "waitlisted"),
-              gt(pickupRegistrations.waitlistPosition, existing.waitlistPosition!)
-            )
-          );
-      }
-    });
+    await removePickupRegistration(existing);
 
     return NextResponse.json({ success: true });
   } catch (error) {

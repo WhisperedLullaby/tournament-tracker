@@ -130,7 +130,7 @@ src/app/
 | Table | Purpose |
 |---|---|
 | `pickup_sessions` | Core pickup session entity. Slug, date, position limits (JSON), scoring rules (JSON), `payment_info` (JSON, nullable), `is_test` flag |
-| `pickup_registrations` | Per-player sign-ups by position. `user_id` nullable (legacy guest rows); new sign-ups require auth. Cancel requires auth (own registration only); auto-promotes waitlist on cancel, in a transaction |
+| `pickup_registrations` | Per-player sign-ups by position. `user_id` nullable (legacy guest rows); new sign-ups require auth. Cancel requires auth (own registration only); organizers can remove any registration via `DELETE /api/pickup/[sessionId]/registrations/[regId]`. Both paths share `removePickupRegistration()` (delete + waitlist promote + renumber in one transaction) and are blocked once the session is active/completed |
 | `pickup_series` | Generated lineups per series — `teamAPlayerIds`, `teamBPlayerIds`, `benchPlayerIds`, series win counts |
 | `pickup_games` | Per-game scores within a series (best-of-3 or best-of-5) |
 | `pickup_player_stats` | Per-user per-session stats by position, written when a series completes |
@@ -224,6 +224,9 @@ The pool/bracket game routes had no authentication — anyone with the URL could
 
 ### ✅ Pickup cancel auth hole — RESOLVED
 The pickup-registration DELETE handler accepted an unauthenticated request with an email in the body and matched any row with that email, letting a stranger cancel another player's spot. Now requires authentication and derives identity from the session; the email-body path is removed. Delete + waitlist-promotion + renumber run in one transaction.
+
+### ✅ Remove player from pickup registration — RESOLVED
+There was no UI to cancel a registration (the self-cancel API existed but nothing called it) and no way for an organizer to remove a player who said they can't come. Added: (1) `DELETE /api/pickup/[sessionId]/registrations/[regId]` — organizer-only, removes any registration including legacy guest rows; (2) the shared `removePickupRegistration()` helper in `pickup-queries.ts` (delete + waitlist promote + renumber, one transaction) now backs both this route and the self-cancel route; (3) roster rows on the session page show a remove button with inline confirm — organizers see it on every player, a signed-in player sees it on their own row; (4) a "Can't make it? Withdraw" button (inline confirm) under the "You're registered" badge; (5) `refreshRegistration()` exposed from `pickup-context.tsx` so the page resyncs after withdrawal. Removal is blocked once the session is active/completed, mirrored client- and server-side.
 
 ### 🟡 Payment step in registration not wired
 The multi-step registration form has a payment step but it's not connected to any payment processor.
