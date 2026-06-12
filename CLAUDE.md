@@ -130,7 +130,7 @@ src/app/
 | Table | Purpose |
 |---|---|
 | `pickup_sessions` | Core pickup session entity. Slug, date, position limits (JSON), scoring rules (JSON), `payment_info` (JSON, nullable), `is_test` flag |
-| `pickup_registrations` | Per-player sign-ups by position. `user_id` nullable (legacy guest rows); new sign-ups require auth. Cancel requires auth (own registration only); organizers can remove any registration via `DELETE /api/pickup/[sessionId]/registrations/[regId]`. Both paths share `removePickupRegistration()` (delete + waitlist promote + renumber in one transaction) and are blocked once the session is active/completed |
+| `pickup_registrations` | Per-player sign-ups by position. `user_id` nullable (legacy guest rows); new sign-ups require auth. Cancel requires auth (own registration only); organizers can remove any registration via `DELETE /api/pickup/[sessionId]/registrations/[regId]`. Both paths share `removePickupRegistration()` (delete + waitlist promote + renumber in one transaction) and are blocked once the session is active/completed. The public GET list endpoint strips `email`/`userId` for non-organizers (`PublicPickupRegistration`) |
 | `pickup_series` | Generated lineups per series — `teamAPlayerIds`, `teamBPlayerIds`, `benchPlayerIds`, series win counts |
 | `pickup_games` | Per-game scores within a series (best-of-3 or best-of-5) |
 | `pickup_player_stats` | Per-user per-session stats by position, written when a series completes |
@@ -233,6 +233,9 @@ Status transitions were one-way and implicit (taking attendance flips `upcoming 
 
 ### ✅ Pickup re-registration after withdrawal — RESOLVED
 A player who withdrew couldn't sign up again. Two causes: (1) `removePickupRegistration()` immediately promotes the first waitlisted player into the freed spot, so in a full session every position showed "Full" — and `PositionSelector` rendered full positions as `disabled`, making the form unsubmittable even though `POST /register` accepts full-position signups as waitlisted. Full positions are now selectable and labeled "Full — join waitlist". (2) Withdrawal is allowed through the `attendance` phase, but the register page and the session-page Sign Up button only opened during `upcoming` (the API only rejects active/completed) — both now open during `upcoming` and `attendance`. Spot-counting was also aligned with the roster fix: the register page counts and the server-side capacity check in `POST /api/pickup/[sessionId]/register` now count `registered` OR `attended` as filling a spot, so registering during check-in can't overfill a position.
+
+### ✅ Pickup registrations API leaked emails — RESOLVED
+`GET /api/pickup/[sessionId]/registrations` returned full `pickup_registrations` rows — including every registrant's `email` and `userId` — to any caller with no auth, and the session page, register page, and `pickup-context.tsx` all fetch it client-side, so every visitor's browser received all registrants' email addresses (same PII class the `pods` column-level lockdown addressed). The route now returns only display-safe fields to non-organizers (`PublicPickupRegistration` in `schema.ts`: id, sessionId, displayName, position, status, waitlistPosition, createdAt); the session organizer (authenticated, `isPickupOrganizer`) still receives full rows. The caller's own registration is resolved server-side and returned as a separate `userRegistration` field, so `pickup-context.tsx` no longer matches roster rows by `userId` client-side. All client consumers (roster, attendance, lineups, register) type registrations as `PublicPickupRegistration`.
 
 ### 🟡 Payment step in registration not wired
 The multi-step registration form has a payment step but it's not connected to any payment processor.

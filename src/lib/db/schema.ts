@@ -455,6 +455,20 @@ export type NewPickupSession = typeof pickupSessions.$inferInsert;
 export type PickupRegistration = typeof pickupRegistrations.$inferSelect;
 export type NewPickupRegistration = typeof pickupRegistrations.$inferInsert;
 
+// Display-safe subset of a registration — what GET /api/pickup/[sessionId]/registrations
+// returns to non-organizer callers. `email` and `userId` never leave the server
+// for the public roster (same PII rule as the pods column-level grants).
+export type PublicPickupRegistration = Pick<
+  PickupRegistration,
+  | "id"
+  | "sessionId"
+  | "displayName"
+  | "position"
+  | "status"
+  | "waitlistPosition"
+  | "createdAt"
+>;
+
 export type PickupSeries = typeof pickupSeries.$inferSelect;
 export type NewPickupSeries = typeof pickupSeries.$inferInsert;
 

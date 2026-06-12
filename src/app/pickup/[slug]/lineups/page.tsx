@@ -7,7 +7,7 @@ import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import { SeriesLineupCard } from "@/components/pickup/series-lineup-card";
-import type { PickupSeries, PickupRegistration } from "@/lib/db/schema";
+import type { PickupSeries, PublicPickupRegistration } from "@/lib/db/schema";
 import { Shuffle, Play, ClipboardList } from "lucide-react";
 import Link from "next/link";
 
@@ -16,7 +16,7 @@ export default function LineupsPage() {
   const router = useRouter();
 
   const [seriesList, setSeriesList] = useState<PickupSeries[]>([]);
-  const [registrations, setRegistrations] = useState<PickupRegistration[]>([]);
+  const [registrations, setRegistrations] = useState<PublicPickupRegistration[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [starting, setStarting] = useState(false);

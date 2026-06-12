@@ -7,12 +7,12 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import type { PickupSession, PickupRegistration } from "@/lib/db/schema";
+import type { PickupSession, PublicPickupRegistration } from "@/lib/db/schema";
 
 interface PickupContextType {
   session: PickupSession;
   isOrganizer: boolean;
-  userRegistration: PickupRegistration | null;
+  userRegistration: PublicPickupRegistration | null;
   isLoading: boolean;
   refreshRegistration: () => Promise<void>;
 }
@@ -29,7 +29,7 @@ export function PickupProvider({
   children: React.ReactNode;
 }) {
   const [userRegistration, setUserRegistration] =
-    useState<PickupRegistration | null>(null);
+    useState<PublicPickupRegistration | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const isOrganizer = !!userId && session.createdBy === userId;
@@ -43,10 +43,11 @@ export function PickupProvider({
       const res = await fetch(`/api/pickup/${session.id}/registrations`);
       if (res.ok) {
         const data = await res.json();
-        const mine = (data.registrations as PickupRegistration[]).find(
-          (r) => r.userId === userId
+        // The API resolves the caller's own registration server-side —
+        // registration rows no longer carry userId for non-organizers.
+        setUserRegistration(
+          (data.userRegistration as PublicPickupRegistration | null) ?? null
         );
-        setUserRegistration(mine ?? null);
       }
     } catch {
       // ignore
