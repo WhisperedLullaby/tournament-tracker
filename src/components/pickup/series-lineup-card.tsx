@@ -4,12 +4,12 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatPosition } from "@/lib/pickup/positions";
-import type { PickupSeries, PickupRegistration } from "@/lib/db/schema";
+import type { PickupSeries, PublicPickupRegistration } from "@/lib/db/schema";
 import { Users, Trash2 } from "lucide-react";
 
 interface Props {
   series: PickupSeries;
-  registrations: PickupRegistration[];
+  registrations: PublicPickupRegistration[];
   isCurrent?: boolean;
   onDelete?: (seriesId: number) => Promise<void>;
 }
@@ -21,7 +21,7 @@ function PlayerList({
   winner,
 }: {
   ids: number[];
-  registrations: PickupRegistration[];
+  registrations: PublicPickupRegistration[];
   label: string;
   winner?: boolean;
 }) {

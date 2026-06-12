@@ -8,7 +8,7 @@ import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PositionRoster } from "@/components/pickup/position-roster";
-import type { PickupRegistration, PickupPaymentInfo } from "@/lib/db/schema";
+import type { PublicPickupRegistration, PickupPaymentInfo } from "@/lib/db/schema";
 import { CalendarDays, MapPin, Users, Clock, Settings, Wallet, ClipboardList } from "lucide-react";
 import { formatPosition } from "@/lib/pickup/positions";
 
@@ -57,7 +57,7 @@ function PaymentInfo({
 export default function PickupSessionPage() {
   const { session, isOrganizer, userRegistration, isLoading, refreshRegistration } =
     usePickup();
-  const [registrations, setRegistrations] = useState<PickupRegistration[]>([]);
+  const [registrations, setRegistrations] = useState<PublicPickupRegistration[]>([]);
   const [regsLoading, setRegsLoading] = useState(true);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [confirmingWithdraw, setConfirmingWithdraw] = useState(false);
@@ -86,7 +86,7 @@ export default function PickupSessionPage() {
     session.status === "upcoming" || session.status === "attendance";
 
   const handleRemove = useCallback(
-    async (reg: PickupRegistration) => {
+    async (reg: PublicPickupRegistration) => {
       setRemoveError(null);
       // Own registration goes through the self-cancel route; anyone else
       // through the organizer route.

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { PickupRegistration } from "@/lib/db/schema";
+import type { PublicPickupRegistration } from "@/lib/db/schema";
 import { POSITION_ORDER, POSITION_LABELS } from "@/lib/pickup/positions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ type AttendanceStatus = "registered" | "waitlisted" | "attended" | "no_show";
 interface AttendanceChecklistProps {
   sessionId: number;
   slug: string;
-  registrations: PickupRegistration[];
+  registrations: PublicPickupRegistration[];
 }
 
 export function AttendanceChecklist({

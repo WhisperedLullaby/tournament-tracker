@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { PickupRegistration } from "@/lib/db/schema";
+import type { PublicPickupRegistration } from "@/lib/db/schema";
 import { POSITION_ORDER, POSITION_LABELS } from "@/lib/pickup/positions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,11 +9,11 @@ import { Users, X } from "lucide-react";
 
 interface PositionRosterProps {
   positionLimits: Record<string, number>;
-  registrations: PickupRegistration[];
+  registrations: PublicPickupRegistration[];
   // Organizers can remove anyone; a player can remove themselves. The page
   // decides — the roster just renders the control where this returns true.
-  canRemove?: (reg: PickupRegistration) => boolean;
-  onRemove?: (reg: PickupRegistration) => Promise<void>;
+  canRemove?: (reg: PublicPickupRegistration) => boolean;
+  onRemove?: (reg: PublicPickupRegistration) => Promise<void>;
 }
 
 export function PositionRoster({
@@ -29,7 +29,7 @@ export function PositionRoster({
     (pos) => (positionLimits[pos] ?? 0) > 0
   );
 
-  async function handleRemove(reg: PickupRegistration) {
+  async function handleRemove(reg: PublicPickupRegistration) {
     if (!onRemove) return;
     setRemovingId(reg.id);
     try {
@@ -40,7 +40,7 @@ export function PositionRoster({
     }
   }
 
-  function removeConfirm(reg: PickupRegistration) {
+  function removeConfirm(reg: PublicPickupRegistration) {
     return (
       <div
         key={reg.id}
@@ -73,7 +73,7 @@ export function PositionRoster({
     );
   }
 
-  function removeButton(reg: PickupRegistration) {
+  function removeButton(reg: PublicPickupRegistration) {
     if (!onRemove || !canRemove?.(reg)) return null;
     return (
       <Button

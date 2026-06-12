@@ -6,13 +6,13 @@ import { usePickup } from "@/contexts/pickup-context";
 import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
 import { AttendanceChecklist } from "@/components/pickup/attendance-checklist";
-import type { PickupRegistration } from "@/lib/db/schema";
+import type { PublicPickupRegistration } from "@/lib/db/schema";
 import { ClipboardCheck } from "lucide-react";
 
 export default function AttendancePage() {
   const { session, isOrganizer, isLoading } = usePickup();
   const router = useRouter();
-  const [registrations, setRegistrations] = useState<PickupRegistration[]>([]);
+  const [registrations, setRegistrations] = useState<PublicPickupRegistration[]>([]);
   const [regsLoading, setRegsLoading] = useState(true);
 
   useEffect(() => {
