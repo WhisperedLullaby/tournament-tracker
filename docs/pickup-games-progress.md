@@ -2,7 +2,7 @@
 
 > Use this doc to resume work in a new session. It captures what's done, what's next, and known issues.
 >
-> **Status as of 2026-06-04:** All 7 phases shipped. All required DB migrations applied to prod. Scorekeeper UX redesigned for tablet use. Dev-only test login wired for local multi-user testing. Only remaining build work is the per-session Settings page.
+> **Status as of 2026-06-12:** All 7 phases shipped, including the per-session Settings page. All required DB migrations applied to prod. First live session was run on 2026-06-12 and surfaced four UX gaps — all fixed same day (see "Post-Launch Fixes" below).
 
 ---
 
@@ -152,9 +152,19 @@ Updates to `src/app/profile/page.tsx`:
 
 ---
 
+## Post-Launch Fixes — 2026-06-12 (first live session feedback)
+
+Four UX gaps surfaced the first time a real session was run, all fixed:
+
+1. **No way back to `/pickup`** — the pickup sub-nav (Session / Scoreboard / Lineups) replaced the base nav entirely. Added an "All Sessions" item to the pickup sub-nav and an "All Tournaments" item to the tournament sub-nav (`navigation.tsx`), plus a back-arrow on the public scoreboard linking to the session page (`pickup-scoreboard-client.tsx`, slug passed as a new prop).
+2. **Series couldn't be deleted** — regenerating lineups left old series in the history forever. New `DELETE /api/pickup/[sessionId]/series/[seriesId]` (organizer-only). Games cascade via FK; `currentSeriesNumber` is re-synced to the max remaining series number in the same transaction so numbering doesn't skip. **Completed series are not deletable** — their results are already in `pickup_player_stats`. UI: trash icon + inline confirm on `SeriesLineupCard`.
+3. **Roster showed all positions as "Open" once the session was in progress** — taking attendance flips registration status `registered → attended`, but `position-roster.tsx` and the session-page header count only matched `registered`. Both now count `registered` OR `attended` as filling a spot (`no_show` frees it; waitlist promotion is server-side).
+4. **No link to the scorekeeper** — added an organizer-only "Scorekeeper" item to the pickup sub-nav (via new `usePickupOptional()` hook in `pickup-context.tsx` — returns `null` outside the provider so `Navigation` can call it on any page), an "Open Scorekeeper" button on the session detail page (organizer, status `attendance`/`active`), and one on the Lineups page whenever a series is in progress.
+
+---
+
 ## Known Issues / Future Work
 
-- Per-session **Settings page** (`src/app/pickup/[slug]/settings/page.tsx`) is linked from the session detail but not implemented.
 - E2E Playwright coverage for the pickup flow does not exist yet.
 
 ---
@@ -231,7 +241,7 @@ src/
         lineups/page.tsx                 — ✅ Phase 4
         scorekeeper/page.tsx             — ✅ Phase 5; redesigned 2026-06-04 to fullscreen tablet layout
         scoreboard/page.tsx              — ✅ Phase 6
-        settings/page.tsx                — TODO (linked but not built)
+        settings/page.tsx                — organizer settings (edit details, scoring, limits, delete)
     api/
       pickup/
         route.ts                         — POST (create) + GET (list)
@@ -247,6 +257,7 @@ src/
             route.ts                     — ✅ Phase 4 (GET list)
             generate/route.ts            — ✅ Phase 4
             [seriesId]/
+              route.ts                   — DELETE (added 2026-06-12; completed series blocked)
               start/route.ts             — ✅ Phase 4
               complete/route.ts          — ✅ Phase 5
               games/

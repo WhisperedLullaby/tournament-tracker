@@ -85,5 +85,11 @@ export default async function PickupScoreboardPage({
     };
   }
 
-  return <PickupScoreboardClient sessionId={session.id} initialData={initialData} />;
+  return (
+    <PickupScoreboardClient
+      sessionId={session.id}
+      sessionSlug={session.slug}
+      initialData={initialData}
+    />
+  );
 }

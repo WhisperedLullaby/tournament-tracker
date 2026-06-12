@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/auth/client";
 import { ScoreCelebration } from "@/components/celebrations/score-celebration";
 import { formatPosition } from "@/lib/pickup/positions";
@@ -36,10 +38,11 @@ const FLASH_DURATION = 2800;
 
 type Props = {
   sessionId: number;
+  sessionSlug: string;
   initialData: ScoreboardData;
 };
 
-export function PickupScoreboardClient({ sessionId, initialData }: Props) {
+export function PickupScoreboardClient({ sessionId, sessionSlug, initialData }: Props) {
   const [data, setData] = useState<ScoreboardData>(initialData);
   const [flashA, setFlashA] = useState(false);
   const [flashB, setFlashB] = useState(false);
@@ -116,7 +119,15 @@ export function PickupScoreboardClient({ sessionId, initialData }: Props) {
 
   return (
     <div className="dark">
-      <div className="flex flex-col min-h-screen bg-background text-foreground">
+      <div className="relative flex flex-col min-h-screen bg-background text-foreground">
+        <Link
+          href={`/pickup/${sessionSlug}`}
+          className="absolute top-3 left-3 z-10 p-1.5 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-foreground/10 transition-colors"
+          aria-label="Back to session"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+
         {/* Header */}
         <header className="flex flex-col items-center pt-10 pb-2 gap-2 shrink-0">
           <h1 className="text-xl font-bold tracking-[0.2em] text-foreground/60 uppercase">
