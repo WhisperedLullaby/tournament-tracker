@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export function Footer() {
   return (
     <footer className="bg-card border-t">
@@ -24,28 +26,20 @@ export function Footer() {
             <h3 className="text-primary mb-2 font-semibold">Quick Links</h3>
             <ul className="text-muted-foreground space-y-1 text-sm">
               <li>
-                <a
-                  href="/standings"
+                <Link
+                  href="/tournaments"
                   className="hover:text-primary transition-colors"
                 >
-                  Standings
-                </a>
+                  Tournaments
+                </Link>
               </li>
               <li>
-                <a
-                  href="/schedule"
+                <Link
+                  href="/pickup"
                   className="hover:text-primary transition-colors"
                 >
-                  Schedule
-                </a>
-              </li>
-              <li>
-                <a
-                  href="/teams"
-                  className="hover:text-primary transition-colors"
-                >
-                  Teams
-                </a>
+                  Pickup Games
+                </Link>
               </li>
             </ul>
           </div>
