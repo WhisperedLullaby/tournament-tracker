@@ -8,6 +8,7 @@ import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PositionRoster } from "@/components/pickup/position-roster";
+import { AddPlayerDialog } from "@/components/pickup/add-player-dialog";
 import type { PublicPickupRegistration, PickupPaymentInfo } from "@/lib/db/schema";
 import { CalendarDays, MapPin, Users, Clock, Settings, Wallet, ClipboardList } from "lucide-react";
 import { formatPosition } from "@/lib/pickup/positions";
@@ -266,7 +267,18 @@ export default function PickupSessionPage() {
 
       {/* Roster */}
       <div className="container mx-auto px-4 py-8">
-        <h2 className="mb-4 text-xl font-semibold">Player Roster</h2>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Player Roster</h2>
+          {/* Same window as removal — open until the session starts. */}
+          {isOrganizer && removalOpen && (
+            <AddPlayerDialog
+              sessionId={session.id}
+              positionLimits={session.positionLimits}
+              registrations={registrations}
+              onAdded={fetchRegistrations}
+            />
+          )}
+        </div>
         {removeError && (
           <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
             {removeError}

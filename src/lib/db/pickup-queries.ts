@@ -6,7 +6,7 @@ import {
   pickupGames,
   pickupPlayerStats,
 } from "./schema";
-import { eq, and, count, sql, desc, asc, gt } from "drizzle-orm";
+import { eq, and, count, sql, desc, asc, gt, inArray } from "drizzle-orm";
 
 export async function getPickupSessionBySlug(slug: string) {
   return db.query.pickupSessions.findFirst({
@@ -106,6 +106,87 @@ export async function getUserPickupRegistration(
       eq(pickupRegistrations.userId, userId),
       eq(pickupRegistrations.sessionId, sessionId)
     ),
+  });
+}
+
+// Insert a registration with capacity + waitlist handling, used by both
+// self-registration (POST /register) and the organizer "add player" route
+// (POST /registrations, userId null — players without an account). Locks the
+// session row so concurrent sign-ups can't race the "last spot" check or
+// waitlist numbering. The duplicate check only applies to authenticated users
+// — one row per user per session; organizer-added guests have no identity to
+// de-dupe on.
+export async function addPickupRegistration(input: {
+  sessionId: number;
+  userId: string | null;
+  email: string;
+  displayName: string;
+  position: (typeof pickupRegistrations.position.enumValues)[number];
+  positionLimit: number;
+}) {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT id FROM pickup_sessions WHERE id = ${input.sessionId} FOR UPDATE`
+    );
+
+    if (input.userId !== null) {
+      const already = await tx.query.pickupRegistrations.findFirst({
+        where: and(
+          eq(pickupRegistrations.userId, input.userId),
+          eq(pickupRegistrations.sessionId, input.sessionId)
+        ),
+      });
+      if (already) return { duplicate: true as const };
+    }
+
+    // "attended" still holds the spot once attendance has been taken —
+    // registration is open through the attendance phase, so checked-in
+    // players must count toward capacity.
+    const [{ registered }] = await tx
+      .select({ registered: count() })
+      .from(pickupRegistrations)
+      .where(
+        and(
+          eq(pickupRegistrations.sessionId, input.sessionId),
+          eq(pickupRegistrations.position, input.position),
+          inArray(pickupRegistrations.status, ["registered", "attended"])
+        )
+      );
+
+    let status: "registered" | "waitlisted" = "registered";
+    let waitlistPosition: number | null = null;
+
+    if (registered >= input.positionLimit) {
+      status = "waitlisted";
+      const [{ maxWaitlist }] = await tx
+        .select({
+          maxWaitlist: sql<number>`coalesce(max(${pickupRegistrations.waitlistPosition}), 0)`,
+        })
+        .from(pickupRegistrations)
+        .where(
+          and(
+            eq(pickupRegistrations.sessionId, input.sessionId),
+            eq(pickupRegistrations.position, input.position),
+            eq(pickupRegistrations.status, "waitlisted")
+          )
+        );
+      waitlistPosition = Number(maxWaitlist) + 1;
+    }
+
+    const [registration] = await tx
+      .insert(pickupRegistrations)
+      .values({
+        sessionId: input.sessionId,
+        userId: input.userId,
+        email: input.email,
+        displayName: input.displayName,
+        position: input.position,
+        status,
+        waitlistPosition,
+      })
+      .returning();
+
+    return { duplicate: false as const, registration, status, waitlistPosition };
   });
 }
 

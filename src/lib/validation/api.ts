@@ -12,17 +12,30 @@ export const scoreBody = z.object({
   teamBScore: z.number().int().min(0),
 });
 
+const volleyballPosition = z.enum([
+  "setter",
+  "outside_hitter",
+  "middle_blocker",
+  "opposite",
+  "libero",
+  "defensive_specialist",
+]);
+
 /** Body for pickup self-registration. */
 export const pickupRegisterBody = z.object({
   displayName: z.string().trim().min(1).max(80),
-  position: z.enum([
-    "setter",
-    "outside_hitter",
-    "middle_blocker",
-    "opposite",
-    "libero",
-    "defensive_specialist",
-  ]),
+  position: volleyballPosition,
+});
+
+/**
+ * Body for an organizer manually adding a player (no account — e.g. someone
+ * who can't manage the Google sign-in themselves). Email is optional contact
+ * info; the registration row is created with userId null.
+ */
+export const pickupAddPlayerBody = z.object({
+  displayName: z.string().trim().min(1).max(80),
+  position: volleyballPosition,
+  email: z.string().trim().email().max(255).optional(),
 });
 
 /**
