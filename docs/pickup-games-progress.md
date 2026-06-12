@@ -2,7 +2,7 @@
 
 > Use this doc to resume work in a new session. It captures what's done, what's next, and known issues.
 >
-> **Status as of 2026-06-12:** All 7 phases shipped, including the per-session Settings page. All required DB migrations applied to prod. First live session was run on 2026-06-12 and surfaced four UX gaps — all fixed same day (see "Post-Launch Fixes" below).
+> **Status as of 2026-06-12:** All 7 phases shipped, including the per-session Settings page. All required DB migrations applied to prod. First live session was run on 2026-06-12 and surfaced four UX gaps — all fixed same day (see "Post-Launch Fixes" below). A second wave of registration/roster hardening also landed 2026-06-12 (see "Registration & Roster Management" below): remove/withdraw, session-status control, re-registration fix, registrations-API PII fix, and organizer manual add-player.
 
 ---
 
@@ -18,7 +18,7 @@ Pickup Games is a new section of the Tournament Tracker platform (`/pickup`) tha
 |---|---|
 | Who can create sessions | Whitelisted organizers only (same `organizer_whitelist` table) |
 | Lineup rotation | Full reshuffle every series — all players reshuffled, not challenge court |
-| Auth requirement | Guest sign-up allowed (name + email only); Google auth optional, no profile stats for guests |
+| Auth requirement | **Revised 2026-06-12:** self-sign-up requires Google auth (guest self-registration removed). Organizers can manually add an account-less player (guest row, `user_id` null, no profile stats) via the Add Player dialog |
 | Scoring | Rally scoring to 25, win-by-2, point cap — configurable per session via `scoringRules` JSON |
 
 ---
@@ -163,6 +163,18 @@ Four UX gaps surfaced the first time a real session was run, all fixed:
 
 ---
 
+## Registration & Roster Management — 2026-06-12 (second wave)
+
+Five registration/roster changes landed the same day, after the first live session (full details per item in CLAUDE.md "Known Open Issues"):
+
+1. **Remove / withdraw** (PR #20) — organizers can remove any registration (`DELETE /api/pickup/[sessionId]/registrations/[regId]`); players can withdraw themselves (roster X button + "Can't make it? Withdraw"). Both share `removePickupRegistration()` (delete + waitlist promote + renumber, one transaction) and are blocked once the session is active/completed.
+2. **Session status control** (PR #21) — Settings page "Session Status" card can move a session between all four statuses via `PATCH /api/pickup/[sessionId]` (status value validated server-side). Waitlist promotion also fires when an `attended` player is removed.
+3. **Re-registration after withdrawal** (PR #22) — full positions are selectable as "Full — join waitlist" instead of disabled; register page and Sign Up button open during `attendance` too; spot counting treats `registered` OR `attended` as filling (client + server).
+4. **Registrations API PII** (PR #23) — `GET /registrations` returns display-safe `PublicPickupRegistration` to non-organizers (no `email`/`userId`); the caller's own registration comes back as a separate server-resolved `userRegistration` field; organizers still get full rows.
+5. **Organizer manual add-player** (PR #24) — `POST /api/pickup/[sessionId]/registrations` (organizer-only) creates a guest registration (`user_id` null) for someone who can't manage the sign-in themselves. Capacity/waitlist logic shared with self-registration via `addPickupRegistration()` (session-row lock, one transaction). UI: "Add Player" dialog (`add-player-dialog.tsx`) next to the Player Roster heading, shown while the session is `upcoming`/`attendance`. Guest rows flow through attendance/lineups normally (keyed by registration id); the stats writer skips rows with no `userId`.
+
+---
+
 ## Known Issues / Future Work
 
 - E2E Playwright coverage for the pickup flow does not exist yet.
@@ -220,8 +232,9 @@ src/
     pickup/
       pickup-card.tsx                    — listing card
       pickup-creation-form.tsx           — session creation form
-      position-roster.tsx                — roster grouped by position
+      position-roster.tsx                — roster grouped by position (remove buttons for organizer/self)
       position-selector.tsx              — registration position picker
+      add-player-dialog.tsx              — organizer manual add-player dialog (added 2026-06-12)
       attendance-checklist.tsx           — ✅ Phase 3
       series-lineup-card.tsx             — ✅ Phase 4
       series-score-summary.tsx           — ✅ Phase 5 (supports variant="dark" for tablet scorekeeper)
@@ -247,10 +260,10 @@ src/
         route.ts                         — POST (create) + GET (list)
         [sessionId]/
           route.ts                       — PATCH + DELETE
-          register/route.ts              — POST (sign up) + DELETE (cancel)
+          register/route.ts              — POST (self sign-up) + DELETE (self-cancel)
           registrations/
-            route.ts                     — GET (list)
-            [regId]/route.ts             — PATCH (organizer update)
+            route.ts                     — GET (list; PII-stripped for non-organizers) + POST (organizer add player)
+            [regId]/route.ts             — PATCH (organizer update) + DELETE (organizer remove)
           attendance/route.ts            — POST (batch mark)
           scoreboard/route.ts            — GET (live data)
           series/
