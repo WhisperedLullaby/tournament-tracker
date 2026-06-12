@@ -54,7 +54,7 @@ Two top-level products: tournaments and pickup games. Tournament pages live unde
 
 ```
 src/app/
-├── page.tsx                          # Redirects to /tournaments
+├── page.tsx                          # Home landing page — hero + live-status portal cards (see src/components/home/)
 ├── tournaments/
 │   ├── page.tsx                      # Tournament browser (upcoming/active/completed)
 │   ├── create/page.tsx               # Create tournament (organizer whitelist only)
@@ -239,6 +239,9 @@ A player who withdrew couldn't sign up again. Two causes: (1) `removePickupRegis
 
 ### ✅ Organizer can manually add a player to a pickup session — RESOLVED
 Sign-up requires a Google account, which left no way to register a player who can't manage the sign-in themselves. Organizers can now add a player by hand: `POST /api/pickup/[sessionId]/registrations` (organizer-only, zod-validated `{ displayName, position, email? }`) creates a guest registration with `user_id` null. Guest rows flow through attendance and lineup generation normally (both key off registration ids); the stats writer already skips rows without a `userId`, and the organizer remove route handles their removal. The capacity/waitlist transaction was extracted from the self-register route into the shared `addPickupRegistration()` in `pickup-queries.ts` (session-row lock, duplicate check for authed users only). UI: organizer-only "Add Player" button + dialog (`add-player-dialog.tsx`) next to the Player Roster heading on the session page, shown while the session is `upcoming`/`attendance`; full positions are labeled "joins waitlist".
+
+### ✅ Home landing page — RESOLVED
+`/` previously just redirected to `/tournaments`. It is now a real landing page: the server component fetches live stats (next/active tournament + open team slots via `getPodCount`, next/live pickup session + open spots counting `registered`/`attended`; admins also see test entities) and renders `HomeHero` (sage gradient + `GridPattern` net + gold `ShootingStarsCanvas` + live-status pill links) and `HomePortalCards` (Tournaments / Pickup destination cards with status chips — Live now / Spots open / Full / Coming soon — and exact open-slot counts), plus a three-item "how it works" strip. Components live in `src/components/home/` (`home-hero.tsx`, `home-portal-cards.tsx`, `types.ts`, `format.ts`); all colors via theme tokens.
 
 ### 🟡 Payment step in registration not wired
 The multi-step registration form has a payment step but it's not connected to any payment processor.
