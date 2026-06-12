@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Menu, X, User, LogOut, Plus, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
+import { usePickupOptional } from "@/contexts/pickup-context";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 
 const drawerVariants = {
@@ -30,6 +31,7 @@ export function Navigation() {
   const [isWhitelisted, setIsWhitelisted] = useState(false);
   const pathname = usePathname();
   const { user, isLoading, signIn, signOut } = useAuth();
+  const pickup = usePickupOptional();
 
   // Extract tournament slug from pathname if on a tournament page
   const tournamentSlug = pathname?.match(/^\/tournaments\/([^/]+)/)?.[1];
@@ -105,6 +107,7 @@ export function Navigation() {
         ...(userRole === "organizer"
           ? [{ label: "Scorekeeper", href: `/tournaments/${tournamentSlug}/scorekeeper` }]
           : []),
+        { label: "All Tournaments", href: "/tournaments" },
       ]
     : [];
 
@@ -114,6 +117,10 @@ export function Navigation() {
         { label: "Session", href: `/pickup/${pickupSlug}` },
         { label: "Scoreboard", href: `/pickup/${pickupSlug}/scoreboard` },
         { label: "Lineups", href: `/pickup/${pickupSlug}/lineups` },
+        ...(pickup?.isOrganizer
+          ? [{ label: "Scorekeeper", href: `/pickup/${pickupSlug}/scorekeeper` }]
+          : []),
+        { label: "All Sessions", href: "/pickup" },
       ]
     : [];
 

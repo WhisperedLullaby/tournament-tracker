@@ -63,3 +63,8 @@ export function usePickup() {
   if (!context) throw new Error("usePickup must be used within a PickupProvider");
   return context;
 }
+
+// For components (e.g. Navigation) that render both inside and outside pickup pages
+export function usePickupOptional() {
+  return useContext(PickupContext) ?? null;
+}

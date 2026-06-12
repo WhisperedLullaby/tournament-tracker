@@ -19,8 +19,12 @@ export function PositionRoster({ positionLimits, registrations }: PositionRoster
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {activePositions.map((position) => {
         const limit = positionLimits[position] ?? 0;
+        // "attended" still holds the spot once attendance has been taken;
+        // "no_show" frees it (the waitlist promotion happens server-side)
         const confirmed = registrations.filter(
-          (r) => r.position === position && r.status === "registered"
+          (r) =>
+            r.position === position &&
+            (r.status === "registered" || r.status === "attended")
         );
         const waitlisted = registrations.filter(
           (r) => r.position === position && r.status === "waitlisted"

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PositionRoster } from "@/components/pickup/position-roster";
 import type { PickupRegistration, PickupPaymentInfo } from "@/lib/db/schema";
-import { CalendarDays, MapPin, Users, Clock, Settings, Wallet } from "lucide-react";
+import { CalendarDays, MapPin, Users, Clock, Settings, Wallet, ClipboardList } from "lucide-react";
 import { formatPosition } from "@/lib/pickup/positions";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -70,7 +70,7 @@ export default function PickupSessionPage() {
     session.status === "upcoming" && !userRegistration;
 
   const registeredTotal = registrations.filter(
-    (r) => r.status === "registered"
+    (r) => r.status === "registered" || r.status === "attended"
   ).length;
 
   return (
@@ -136,6 +136,15 @@ export default function PickupSessionPage() {
                   <Button size="sm" asChild>
                     <Link href={`/pickup/${session.slug}/attendance`}>
                       Take Attendance
+                    </Link>
+                  </Button>
+                )}
+              {isOrganizer &&
+                (session.status === "attendance" || session.status === "active") && (
+                  <Button size="sm" asChild>
+                    <Link href={`/pickup/${session.slug}/scorekeeper`}>
+                      <ClipboardList className="mr-2 h-4 w-4" />
+                      Open Scorekeeper
                     </Link>
                   </Button>
                 )}
