@@ -11,8 +11,14 @@ if (!connectionString) {
   );
 }
 
-// Disable prefetch as it's not supported by Supabase connection pooler
-const client = postgres(connectionString, { prepare: false });
+// Disable prefetch as it's not supported by Supabase connection pooler.
+// Cap connections per serverless instance so bursty traffic doesn't exhaust the
+// Supabase pooler (the postgres-js default is 10 per instance).
+const client = postgres(connectionString, {
+  prepare: false,
+  max: 1,
+  idle_timeout: 20,
+});
 
 // Create Drizzle instance
 export const db = drizzle(client, { schema });
