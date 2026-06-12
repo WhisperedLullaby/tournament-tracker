@@ -4,23 +4,10 @@ import { pickupRegistrations } from "@/lib/db/schema";
 import { createClient } from "@/lib/auth/server";
 import {
   getPickupSessionById,
-  getRegisteredCountByPosition,
-  getNextWaitlistPosition,
   getUserPickupRegistration,
-  getGuestPickupRegistration,
 } from "@/lib/db/pickup-queries";
-import { and, eq, gt, sql } from "drizzle-orm";
-
-interface RegisterData {
-  displayName: string;
-  position:
-    | "setter"
-    | "outside_hitter"
-    | "middle_blocker"
-    | "opposite"
-    | "libero"
-    | "defensive_specialist";
-}
+import { and, count, eq, gt, sql } from "drizzle-orm";
+import { parseBody, pickupRegisterBody } from "@/lib/validation/api";
 
 export async function POST(
   request: NextRequest,
@@ -65,14 +52,15 @@ export async function POST(
       );
     }
 
-    const body: RegisterData = await request.json();
-    const { displayName, position } = body;
+    const parsed = await parseBody(request, pickupRegisterBody);
+    if ("response" in parsed) return parsed.response;
+    const { displayName, position } = parsed.data;
     // Email always comes from the authenticated account, never the request body.
     const email = user.email ?? "";
 
-    if (!email || !displayName || !position) {
+    if (!email) {
       return NextResponse.json(
-        { error: "Missing required fields: displayName, position" },
+        { error: "Your account has no email address." },
         { status: 400 }
       );
     }
@@ -86,39 +74,77 @@ export async function POST(
       );
     }
 
-    const existing = await getUserPickupRegistration(user.id, id);
-    if (existing) {
+    // Serialize concurrent sign-ups for this session so the "last spot" check
+    // and waitlist numbering can't race. Locking the session row blocks parallel
+    // registrations until this transaction commits.
+    const outcome = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT id FROM pickup_sessions WHERE id = ${id} FOR UPDATE`
+      );
+
+      const already = await tx.query.pickupRegistrations.findFirst({
+        where: and(
+          eq(pickupRegistrations.userId, user.id),
+          eq(pickupRegistrations.sessionId, id)
+        ),
+      });
+      if (already) return { duplicate: true as const };
+
+      const [{ registered }] = await tx
+        .select({ registered: count() })
+        .from(pickupRegistrations)
+        .where(
+          and(
+            eq(pickupRegistrations.sessionId, id),
+            eq(pickupRegistrations.position, position),
+            eq(pickupRegistrations.status, "registered")
+          )
+        );
+
+      let status: "registered" | "waitlisted" = "registered";
+      let waitlistPosition: number | null = null;
+
+      if (registered >= positionLimit) {
+        status = "waitlisted";
+        const [{ maxWaitlist }] = await tx
+          .select({
+            maxWaitlist: sql<number>`coalesce(max(${pickupRegistrations.waitlistPosition}), 0)`,
+          })
+          .from(pickupRegistrations)
+          .where(
+            and(
+              eq(pickupRegistrations.sessionId, id),
+              eq(pickupRegistrations.position, position),
+              eq(pickupRegistrations.status, "waitlisted")
+            )
+          );
+        waitlistPosition = Number(maxWaitlist) + 1;
+      }
+
+      const [registration] = await tx
+        .insert(pickupRegistrations)
+        .values({
+          sessionId: id,
+          userId: user.id,
+          email,
+          displayName,
+          position,
+          status,
+          waitlistPosition,
+        })
+        .returning();
+
+      return { duplicate: false as const, registration, status, waitlistPosition };
+    });
+
+    if (outcome.duplicate) {
       return NextResponse.json(
         { error: "You are already registered for this session." },
         { status: 400 }
       );
     }
 
-    // Check position availability
-    const registeredCount = await getRegisteredCountByPosition(id, position);
-    const positionFull = registeredCount >= positionLimit;
-
-    let status: "registered" | "waitlisted" = "registered";
-    let waitlistPosition: number | null = null;
-
-    if (positionFull) {
-      status = "waitlisted";
-      waitlistPosition = await getNextWaitlistPosition(id, position);
-    }
-
-    const [registration] = await db
-      .insert(pickupRegistrations)
-      .values({
-        sessionId: id,
-        userId: user.id,
-        email,
-        displayName,
-        position,
-        status,
-        waitlistPosition,
-      })
-      .returning();
-
+    const { registration, status, waitlistPosition } = outcome;
     return NextResponse.json(
       {
         success: true,
@@ -158,27 +184,22 @@ export async function DELETE(
       return NextResponse.json({ error: "Invalid session ID" }, { status: 400 });
     }
 
+    // Cancellation requires a signed-in account; identity comes from the
+    // session, never the request body. (Previously an unauthenticated caller
+    // could cancel any player's spot by passing their email.)
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    const body = await request.json().catch(() => ({}));
-    const email: string | undefined = body.email;
-
-    if (!user && !email) {
+    if (!user) {
       return NextResponse.json(
-        { error: "Provide your email to cancel guest registration." },
-        { status: 400 }
+        { error: "You must be signed in to cancel a registration." },
+        { status: 401 }
       );
     }
 
-    let existing;
-    if (user) {
-      existing = await getUserPickupRegistration(user.id, id);
-    } else {
-      existing = await getGuestPickupRegistration(email!, id);
-    }
+    const existing = await getUserPickupRegistration(user.id, id);
 
     if (!existing) {
       return NextResponse.json(
@@ -195,29 +216,49 @@ export async function DELETE(
       );
     }
 
-    await db
-      .delete(pickupRegistrations)
-      .where(eq(pickupRegistrations.id, existing.id));
+    // Delete + promote + renumber as one transaction so the waitlist can't be
+    // left with a gap or a duplicated position on a partial failure.
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(pickupRegistrations)
+        .where(eq(pickupRegistrations.id, existing.id));
 
-    // Promote next waitlisted player for this position if the withdrawn player had a confirmed spot
-    if (existing.status === "registered") {
-      const nextWaitlisted = await db.query.pickupRegistrations.findFirst({
-        where: and(
-          eq(pickupRegistrations.sessionId, id),
-          eq(pickupRegistrations.position, existing.position),
-          eq(pickupRegistrations.status, "waitlisted")
-        ),
-        orderBy: [pickupRegistrations.waitlistPosition],
-      });
+      // Promote next waitlisted player for this position if the withdrawn player had a confirmed spot
+      if (existing.status === "registered") {
+        const nextWaitlisted = await tx.query.pickupRegistrations.findFirst({
+          where: and(
+            eq(pickupRegistrations.sessionId, id),
+            eq(pickupRegistrations.position, existing.position),
+            eq(pickupRegistrations.status, "waitlisted")
+          ),
+          orderBy: [pickupRegistrations.waitlistPosition],
+        });
 
-      if (nextWaitlisted) {
-        await db
-          .update(pickupRegistrations)
-          .set({ status: "registered", waitlistPosition: null, updatedAt: new Date() })
-          .where(eq(pickupRegistrations.id, nextWaitlisted.id));
+        if (nextWaitlisted) {
+          await tx
+            .update(pickupRegistrations)
+            .set({ status: "registered", waitlistPosition: null, updatedAt: new Date() })
+            .where(eq(pickupRegistrations.id, nextWaitlisted.id));
 
-        // Renumber remaining waitlisted players for this position
-        await db
+          // Renumber remaining waitlisted players for this position
+          await tx
+            .update(pickupRegistrations)
+            .set({
+              waitlistPosition: sql`${pickupRegistrations.waitlistPosition} - 1`,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(pickupRegistrations.sessionId, id),
+                eq(pickupRegistrations.position, existing.position),
+                eq(pickupRegistrations.status, "waitlisted"),
+                gt(pickupRegistrations.waitlistPosition, nextWaitlisted.waitlistPosition!)
+              )
+            );
+        }
+      } else if (existing.status === "waitlisted") {
+        // Player was on waitlist — renumber everyone behind them
+        await tx
           .update(pickupRegistrations)
           .set({
             waitlistPosition: sql`${pickupRegistrations.waitlistPosition} - 1`,
@@ -228,27 +269,11 @@ export async function DELETE(
               eq(pickupRegistrations.sessionId, id),
               eq(pickupRegistrations.position, existing.position),
               eq(pickupRegistrations.status, "waitlisted"),
-              gt(pickupRegistrations.waitlistPosition, nextWaitlisted.waitlistPosition!)
+              gt(pickupRegistrations.waitlistPosition, existing.waitlistPosition!)
             )
           );
       }
-    } else if (existing.status === "waitlisted") {
-      // Player was on waitlist — renumber everyone behind them
-      await db
-        .update(pickupRegistrations)
-        .set({
-          waitlistPosition: sql`${pickupRegistrations.waitlistPosition} - 1`,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(pickupRegistrations.sessionId, id),
-            eq(pickupRegistrations.position, existing.position),
-            eq(pickupRegistrations.status, "waitlisted"),
-            gt(pickupRegistrations.waitlistPosition, existing.waitlistPosition!)
-          )
-        );
-    }
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

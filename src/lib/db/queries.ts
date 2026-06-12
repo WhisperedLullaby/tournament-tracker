@@ -92,21 +92,15 @@ export async function getAllPods(tournamentId: number): Promise<PodData[]> {
       .where(eq(pods.tournamentId, tournamentId))
       .orderBy(asc(pods.id));
 
-    // Use adapters to translate database IDs to pod numbers and extract first names
-    const translatedPods = await Promise.all(
-      podList.map(async (pod) => {
-        const translatedPodNumber = await adaptPodIdToNumber(tournamentId, pod.podId);
-        return {
-          ...pod,
-          podId: translatedPodNumber ?? pod.podId, // Fallback to original ID if translation fails
-          player1: _adaptPlayerNameToFirstName(pod.player1),
-          player2: pod.player2 ? _adaptPlayerNameToFirstName(pod.player2) : null,
-          playerNames: _adaptCombinedNamesToFirstNames(pod.playerNames),
-        };
-      })
-    );
-
-    return translatedPods;
+    // Pods are numbered by their position in ascending-id order (1..N), so the
+    // array index IS the pod number — no per-row lookup needed.
+    return podList.map((pod, index) => ({
+      ...pod,
+      podId: index + 1,
+      player1: _adaptPlayerNameToFirstName(pod.player1),
+      player2: pod.player2 ? _adaptPlayerNameToFirstName(pod.player2) : null,
+      playerNames: _adaptCombinedNamesToFirstNames(pod.playerNames),
+    }));
   } catch (error) {
     console.error("Error fetching all pods:", error);
     return [];
@@ -287,93 +281,6 @@ export async function getAllPoolMatches(tournamentId: number) {
   }
 }
 
-/**
- * Pod ID to Pod Number Adapter
- *
- * Adapter design pattern implementation for translating database pod IDs
- * to sequential pod numbers (1-9) based on their sorted order within a tournament.
- *
- * Example: podId 27 → podNumber 1, podId 35 → podNumber 9
- */
-class PodIdAdapter {
-  private tournamentMaps: Map<number, Map<number, number>> = new Map();
-
-  /**
-   * Initialize the adapter by building the ID to number mapping for a tournament
-   * @private
-   */
-  private async initialize(tournamentId: number): Promise<void> {
-    if (this.tournamentMaps.has(tournamentId)) {
-      return; // Already initialized for this tournament
-    }
-
-    try {
-      const allPods = await db
-        .select({ id: pods.id })
-        .from(pods)
-        .where(eq(pods.tournamentId, tournamentId))
-        .orderBy(asc(pods.id));
-
-      const mapping = new Map<number, number>();
-      allPods.forEach((pod, index) => {
-        mapping.set(pod.id, index + 1);
-      });
-      this.tournamentMaps.set(tournamentId, mapping);
-    } catch (error) {
-      console.error("Error initializing pod ID adapter:", error);
-      this.tournamentMaps.set(tournamentId, new Map());
-    }
-  }
-
-  /**
-   * Translate a pod ID to its corresponding pod number (1-9) within a tournament
-   * @param tournamentId - The tournament ID
-   * @param podId - The database pod ID to translate
-   * @returns The pod number (1-9) or undefined if pod ID not found
-   */
-  async adaptPodIdToNumber(tournamentId: number, podId: number): Promise<number | undefined> {
-    await this.initialize(tournamentId);
-    return this.tournamentMaps.get(tournamentId)?.get(podId);
-  }
-
-  /**
-   * Reset the adapter cache (useful for testing or when pods are updated)
-   */
-  reset(tournamentId?: number): void {
-    if (tournamentId) {
-      this.tournamentMaps.delete(tournamentId);
-    } else {
-      this.tournamentMaps.clear();
-    }
-  }
-}
-
-// Singleton instance
-const podIdAdapter = new PodIdAdapter();
-
-/**
- * Adapt pod ID to pod number
- *
- * Adapter function that translates database pod IDs to sequential pod numbers within a tournament.
- * Pods are numbered 1-9 based on their ascending ID order for that specific tournament.
- *
- * @param tournamentId - The tournament ID
- * @param podId - The database pod ID to translate (e.g., 27, 35)
- * @returns The pod number (1-9) or undefined if pod ID not found
- *
- * @example
- * ```ts
- * const podNumber = await adaptPodIdToNumber(1, 27); // Returns 1 for tournament 1
- * const podNumber = await adaptPodIdToNumber(1, 35); // Returns 9 for tournament 1
- * ```
- */
-export async function adaptPodIdToNumber(
-  tournamentId: number,
-  podId: number
-): Promise<number | undefined> {
-  return podIdAdapter.adaptPodIdToNumber(tournamentId, podId);
-}
-
 // Re-export name adapter functions from utility module
 export {
   adaptPlayerNameToFirstName,
@@ -482,21 +389,18 @@ export async function createBracketTeamsFromStandings(tournamentId: number) {
     }
 
     const TEAM_LETTERS = "ABCDEFGHIJKLMNOP";
-    const createdTeams = [];
-    for (let i = 0; i < teamCount; i++) {
-      const pods = teamPodIds[i];
-      const [team] = await db
-        .insert(bracketTeams)
-        .values({
+    const createdTeams = await db
+      .insert(bracketTeams)
+      .values(
+        teamPodIds.map((teamPods, i) => ({
           tournamentId,
           teamName: `Team ${TEAM_LETTERS[i]}`,
-          pod1Id: pods[0],
-          pod2Id: pods[1],
-          pod3Id: pods[2] ?? null,
-        })
-        .returning();
-      createdTeams.push(team);
-    }
+          pod1Id: teamPods[0],
+          pod2Id: teamPods[1],
+          pod3Id: teamPods[2] ?? null,
+        }))
+      )
+      .returning();
 
     return createdTeams;
   } catch (error) {
@@ -565,64 +469,24 @@ async function seed4TeamDE(tournamentId: number, teams: { id: number; teamName: 
     { gameNumber: 7, bracketType: "championship" as const, teamAId: null, teamBId: null }, // Rematch if needed
   ];
 
-  for (const row of rows) {
-    await db.insert(bracketMatches).values({ tournamentId, status: "pending", ...row });
-  }
+  await db.insert(bracketMatches).values(
+    rows.map((row) => ({ tournamentId, status: "pending" as const, ...row }))
+  );
 }
 
 /**
- * 6-team double elimination seeder (11 games).
- * Single-court flow:
- *   G1  Winners R1: A vs F
- *   G2  Winners R1: B vs E
- *   G3  Winners R1: C vs D
- *   G4  Losers R1:  loser G1 vs loser G2
- *   G5  Losers R1:  loser G3 sits (bye — only 2 losers available for first round)
- *   G6  Winners SF: winner G1 vs winner G3
- *   G7  Winners SF: winner G2 vs winner G4... (wait — need to rethink)
- *
- * Standard 6-team DE schedule:
- *   G1  W-R1: seed1(A) vs seed6(F)
- *   G2  W-R1: seed2(B) vs seed5(E)
- *   G3  W-R1: seed3(C) vs seed4(D)
- *   G4  L-R1: loser(G1) vs loser(G2)
- *   G5  W-QF: winner(G1) vs winner(G3)   [seed1/6 winner vs seed3/4 winner]
- *   G6  W-QF: winner(G2) vs bye           [seed2/5 winner gets bye — becomes W-SF entry]
- *   G7  L-R2: loser(G5) vs loser(G3)      [W-QF loser vs W-R1 loser with bye]
- *   G8  L-R2: winner(G4) vs loser(G6)
- *   G9  W-SF: winner(G5) vs winner(G6)    [Winners Final]
- *   G10 L-QF: winner(G7) vs winner(G8)
- *   G11 L-SF: loser(G9) vs winner(G10)    [Losers Final]
- *   G12 Championship: winner(G9) vs winner(G11)
- *   G13 Rematch if needed
- *
- * Reordered for single-court logical flow:
- *   G1  W-R1: A vs F
- *   G2  W-R1: B vs E
- *   G3  W-R1: C vs D
- *   G4  L-R1: loser(G1) vs loser(G2)      — both losers known after G1+G2
- *   G5  W-QF: winner(G1) vs winner(G3)    — G3 loser goes to L-R2 (G7)
- *   G6  W-QF: winner(G2) vs winner(G4)...
- *
- * Simplified practical schedule (interleaved single court):
- *   G1  W-R1:   A vs F
- *   G2  W-R1:   B vs E
- *   G3  W-R1:   C vs D
- *   G4  L-R1:   loser(G1) vs loser(G2)
- *   G5  W-SF:   winner(G1) vs winner(G3)
- *   G6  W-SF:   winner(G2) vs winner(G4)  [NOTE: winner(G4) = winner of L-R1... this is non-standard]
- *
- * Using the clean 6-team DE with 3 byes in losers:
- *   G1  W-R1:   A vs F            (1st/6th)
- *   G2  W-R1:   B vs E            (2nd/5th)
- *   G3  W-R1:   C vs D            (3rd/4th)
- *   G4  L-R1:   loser(G2) vs loser(G3)
- *   G5  W-SF:   winner(G2) vs winner(G3)
- *   G6  L-R1:   loser(G1) vs loser(G5)
- *   G7  W-SF:   winner(G1) vs winner(G5)  [Winners Final]
- *   G8  L-SF:   winner(G4) vs winner(G6)
- *   G9  L-Final: winner(G8) vs loser(G7)
- *   G10 Championship: winner(G7) vs winner(G9)
+ * 6-team double elimination seeder (11 games), single-court interleaved flow.
+ * Seeds: A=1st, B=2nd, C=3rd, D=4th, E=5th, F=6th. W-R1 matchups: 1v6, 2v5, 3v4.
+ *   G1  W-R1:    A vs F
+ *   G2  W-R1:    B vs E
+ *   G3  W-R1:    C vs D
+ *   G4  L-R1:    loser(G2) vs loser(G3)   — first two losers available
+ *   G5  W-SF:    winner(G2) vs winner(G3)
+ *   G6  L-R1:    loser(G1) vs loser(G5)   — G1 loser waits, plays W-SF loser
+ *   G7  W-Final: winner(G1) vs winner(G5)
+ *   G8  L-QF:    winner(G4) vs winner(G6)
+ *   G9  L-Final: loser(G7) vs winner(G8)
+ *   G10 Champ:   winner(G7) vs winner(G9)
  *   G11 Rematch if needed
  */
 async function seed6TeamDE(tournamentId: number, teams: { id: number; teamName: string }[]) {
@@ -632,21 +496,6 @@ async function seed6TeamDE(tournamentId: number, teams: { id: number; teamName: 
     return t.id;
   };
 
-  // 6-team DE: 11 games
-  // Seeds: A=1st, B=2nd, C=3rd, D=4th, E=5th, F=6th
-  // W-R1 matchups: 1v6, 2v5, 3v4
-  // Single-court interleaved flow:
-  //   G1: W-R1 A vs F
-  //   G2: W-R1 B vs E
-  //   G3: W-R1 C vs D
-  //   G4: L-R1 loser(G2) vs loser(G3)     — first two losers available
-  //   G5: W-SF winner(G2) vs winner(G3)
-  //   G6: L-R1 loser(G1) vs loser(G5)     — G1 loser waits, plays L-R1 vs W-SF loser
-  //   G7: W-F  winner(G1) vs winner(G5)   — Winners Final
-  //   G8: L-QF winner(G4) vs winner(G6)
-  //   G9: L-SF loser(G7)  vs winner(G8)   — Losers Final
-  //  G10: Champ winner(G7) vs winner(G9)
-  //  G11: Rematch if needed
   const rows = [
     { gameNumber: 1,  bracketType: "winners"      as const, teamAId: get("Team A"), teamBId: get("Team F") },
     { gameNumber: 2,  bracketType: "winners"      as const, teamAId: get("Team B"), teamBId: get("Team E") },
@@ -661,9 +510,9 @@ async function seed6TeamDE(tournamentId: number, teams: { id: number; teamName: 
     { gameNumber: 11, bracketType: "championship" as const, teamAId: null, teamBId: null }, // rematch if needed
   ];
 
-  for (const row of rows) {
-    await db.insert(bracketMatches).values({ tournamentId, status: "pending", ...row });
-  }
+  await db.insert(bracketMatches).values(
+    rows.map((row) => ({ tournamentId, status: "pending" as const, ...row }))
+  );
 }
 
 /**
@@ -747,13 +596,19 @@ export async function advanceBracketTeams(tournamentId: number, completedGameNum
       .from(bracketTeams)
       .where(eq(bracketTeams.tournamentId, tournamentId));
 
-    if (teams.length === 4) {
-      await advance4TeamDE(tournamentId, completedGameNumber, winnerId, loserId);
-    } else if (teams.length === 6) {
-      await advance6TeamDE(tournamentId, completedGameNumber, winnerId, loserId);
-    } else {
+    if (teams.length !== 4 && teams.length !== 6) {
       throw new Error(`Unsupported bracket team count for advancement: ${teams.length}`);
     }
+
+    // Each advancement writes several slots; run them in one transaction so the
+    // bracket can never be left half-advanced.
+    await db.transaction(async (tx) => {
+      if (teams.length === 4) {
+        await advance4TeamDE(tx, tournamentId, completedGameNumber, winnerId, loserId);
+      } else {
+        await advance6TeamDE(tx, tournamentId, completedGameNumber, winnerId, loserId);
+      }
+    });
   } catch (error) {
     console.error("Error advancing bracket teams:", error);
     throw error;
@@ -762,8 +617,11 @@ export async function advanceBracketTeams(tournamentId: number, completedGameNum
 
 // ---- private helpers ----
 
-async function setSlot(tournamentId: number, gameNumber: number, slot: "teamAId" | "teamBId", teamId: number) {
-  await db
+/** Transaction handle type, derived from db.transaction's callback parameter. */
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function setSlot(tx: Tx, tournamentId: number, gameNumber: number, slot: "teamAId" | "teamBId", teamId: number) {
+  await tx
     .update(bracketMatches)
     .set({ [slot]: teamId })
     .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = ${gameNumber}`);
@@ -773,29 +631,29 @@ async function setSlot(tournamentId: number, gameNumber: number, slot: "teamAId"
  * 4-team DE advancement.
  * Game map: G1 W-R1, G2 W-R1, G3 L-R1, G4 W-Final, G5 L-Final, G6 Champ, G7 Rematch
  */
-async function advance4TeamDE(tournamentId: number, g: number, winnerId: number, loserId: number) {
+async function advance4TeamDE(tx: Tx, tournamentId: number, g: number, winnerId: number, loserId: number) {
   switch (g) {
     case 1:
-      await setSlot(tournamentId, 4, "teamAId", winnerId); // → W-Final
-      await setSlot(tournamentId, 3, "teamAId", loserId);  // → L-R1
+      await setSlot(tx, tournamentId, 4, "teamAId", winnerId); // → W-Final
+      await setSlot(tx, tournamentId, 3, "teamAId", loserId);  // → L-R1
       break;
     case 2:
-      await setSlot(tournamentId, 4, "teamBId", winnerId); // → W-Final
-      await setSlot(tournamentId, 3, "teamBId", loserId);  // → L-R1
+      await setSlot(tx, tournamentId, 4, "teamBId", winnerId); // → W-Final
+      await setSlot(tx, tournamentId, 3, "teamBId", loserId);  // → L-R1
       break;
     case 3: // L-R1
-      await setSlot(tournamentId, 5, "teamAId", winnerId); // → L-Final
+      await setSlot(tx, tournamentId, 5, "teamAId", winnerId); // → L-Final
       break;
     case 4: // W-Final
-      await setSlot(tournamentId, 6, "teamAId", winnerId); // → Champ (undefeated side)
-      await setSlot(tournamentId, 5, "teamBId", loserId);  // → L-Final
+      await setSlot(tx, tournamentId, 6, "teamAId", winnerId); // → Champ (undefeated side)
+      await setSlot(tx, tournamentId, 5, "teamBId", loserId);  // → L-Final
       break;
     case 5: // L-Final
-      await setSlot(tournamentId, 6, "teamBId", winnerId); // → Champ (losers side)
+      await setSlot(tx, tournamentId, 6, "teamBId", winnerId); // → Champ (losers side)
       break;
     case 6: { // Championship
       // Rematch only if the G4 winner (undefeated) lost here — they still have just 1 loss
-      const [game4] = await db
+      const [game4] = await tx
         .select()
         .from(bracketMatches)
         .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 4`)
@@ -803,7 +661,7 @@ async function advance4TeamDE(tournamentId: number, g: number, winnerId: number,
       if (game4) {
         const g4Winner = game4.teamAScore > game4.teamBScore ? game4.teamAId : game4.teamBId;
         if (loserId === g4Winner) {
-          await db
+          await tx
             .update(bracketMatches)
             .set({ teamAId: winnerId, teamBId: loserId })
             .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 7`);
@@ -831,43 +689,43 @@ async function advance4TeamDE(tournamentId: number, g: number, winnerId: number,
  *   G10 Champ:  winner(G7) vs winner(G9)
  *   G11 Rematch if needed
  */
-async function advance6TeamDE(tournamentId: number, g: number, winnerId: number, loserId: number) {
+async function advance6TeamDE(tx: Tx, tournamentId: number, g: number, winnerId: number, loserId: number) {
   switch (g) {
     case 1: // W-R1 A vs F
-      await setSlot(tournamentId, 7, "teamAId", winnerId); // → W-Final teamA
-      await setSlot(tournamentId, 6, "teamAId", loserId);  // → L-R1(G6) teamA (waits for G5 loser)
+      await setSlot(tx, tournamentId, 7, "teamAId", winnerId); // → W-Final teamA
+      await setSlot(tx, tournamentId, 6, "teamAId", loserId);  // → L-R1(G6) teamA (waits for G5 loser)
       break;
     case 2: // W-R1 B vs E
-      await setSlot(tournamentId, 5, "teamAId", winnerId); // → W-SF teamA
-      await setSlot(tournamentId, 4, "teamAId", loserId);  // → L-R1(G4) teamA
+      await setSlot(tx, tournamentId, 5, "teamAId", winnerId); // → W-SF teamA
+      await setSlot(tx, tournamentId, 4, "teamAId", loserId);  // → L-R1(G4) teamA
       break;
     case 3: // W-R1 C vs D
-      await setSlot(tournamentId, 5, "teamBId", winnerId); // → W-SF teamB
-      await setSlot(tournamentId, 4, "teamBId", loserId);  // → L-R1(G4) teamB
+      await setSlot(tx, tournamentId, 5, "teamBId", winnerId); // → W-SF teamB
+      await setSlot(tx, tournamentId, 4, "teamBId", loserId);  // → L-R1(G4) teamB
       break;
     case 4: // L-R1
-      await setSlot(tournamentId, 8, "teamAId", winnerId); // → L-QF teamA
+      await setSlot(tx, tournamentId, 8, "teamAId", winnerId); // → L-QF teamA
       break;
     case 5: // W-SF
-      await setSlot(tournamentId, 7, "teamBId", winnerId); // → W-Final teamB
-      await setSlot(tournamentId, 6, "teamBId", loserId);  // → L-R1(G6) teamB
+      await setSlot(tx, tournamentId, 7, "teamBId", winnerId); // → W-Final teamB
+      await setSlot(tx, tournamentId, 6, "teamBId", loserId);  // → L-R1(G6) teamB
       break;
     case 6: // L-R1 (second)
-      await setSlot(tournamentId, 8, "teamBId", winnerId); // → L-QF teamB
+      await setSlot(tx, tournamentId, 8, "teamBId", winnerId); // → L-QF teamB
       break;
     case 7: // W-Final
-      await setSlot(tournamentId, 10, "teamAId", winnerId); // → Champ (undefeated side)
-      await setSlot(tournamentId, 9,  "teamAId", loserId);  // → L-Final
+      await setSlot(tx, tournamentId, 10, "teamAId", winnerId); // → Champ (undefeated side)
+      await setSlot(tx, tournamentId, 9,  "teamAId", loserId);  // → L-Final
       break;
     case 8: // L-QF
-      await setSlot(tournamentId, 9, "teamBId", winnerId); // → L-Final
+      await setSlot(tx, tournamentId, 9, "teamBId", winnerId); // → L-Final
       break;
     case 9: // L-Final
-      await setSlot(tournamentId, 10, "teamBId", winnerId); // → Champ (losers side)
+      await setSlot(tx, tournamentId, 10, "teamBId", winnerId); // → Champ (losers side)
       break;
     case 10: { // Championship
       // Rematch only if G7 winner (undefeated) lost here
-      const [game7] = await db
+      const [game7] = await tx
         .select()
         .from(bracketMatches)
         .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 7`)
@@ -875,7 +733,7 @@ async function advance6TeamDE(tournamentId: number, g: number, winnerId: number,
       if (game7) {
         const g7Winner = game7.teamAScore > game7.teamBScore ? game7.teamAId : game7.teamBId;
         if (loserId === g7Winner) {
-          await db
+          await tx
             .update(bracketMatches)
             .set({ teamAId: winnerId, teamBId: loserId })
             .where(sql`${bracketMatches.tournamentId} = ${tournamentId} AND ${bracketMatches.gameNumber} = 11`);

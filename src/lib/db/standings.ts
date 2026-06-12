@@ -4,10 +4,16 @@
 
 import { db } from "./index";
 import { poolStandings } from "./schema";
-import { eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 /**
- * Updates pool standings for all pods involved in a completed game
+ * Updates pool standings for all pods involved in a completed game.
+ *
+ * Runs in a single transaction so a partial failure rolls back rather than
+ * leaving some pods updated and others not. Each pod is upserted atomically
+ * (INSERT ... ON CONFLICT), which relies on the unique constraint on
+ * (tournament_id, pod_id).
+ *
  * @param tournamentId - The tournament ID
  * @param teamAPods - Array of pod IDs on Team A
  * @param teamBPods - Array of pod IDs on Team B
@@ -27,68 +33,50 @@ export async function updatePoolStandings(
   const winningScore = teamAWon ? teamAScore : teamBScore;
   const losingScore = teamAWon ? teamBScore : teamAScore;
 
-  // Update standings for winning pods
-  for (const podId of winningPods) {
-    await updatePodStanding(tournamentId, podId, true, winningScore, losingScore);
-  }
-
-  // Update standings for losing pods
-  for (const podId of losingPods) {
-    await updatePodStanding(tournamentId, podId, false, losingScore, winningScore);
-  }
+  await db.transaction(async (tx) => {
+    for (const podId of winningPods) {
+      await upsertPodStanding(tx, tournamentId, podId, true, winningScore, losingScore);
+    }
+    for (const podId of losingPods) {
+      await upsertPodStanding(tx, tournamentId, podId, false, losingScore, winningScore);
+    }
+  });
 }
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 /**
- * Updates or creates a standing record for a single pod
- * @param tournamentId - The tournament ID
- * @param podId - The pod ID to update
- * @param won - Whether the pod won this game
- * @param pointsFor - Points scored by this pod's team
- * @param pointsAgainst - Points scored by the opposing team
+ * Upserts a single pod's standing: creates the row on first game, otherwise
+ * increments the running totals. Atomic — no read-then-write race.
  */
-async function updatePodStanding(
+async function upsertPodStanding(
+  tx: Tx,
   tournamentId: number,
   podId: number,
   won: boolean,
   pointsFor: number,
   pointsAgainst: number
 ) {
-  try {
-    // Check if standing exists
-    const existing = await db
-      .select()
-      .from(poolStandings)
-      .where(eq(poolStandings.podId, podId))
-      .limit(1);
+  const winInc = won ? 1 : 0;
+  const lossInc = won ? 0 : 1;
 
-    if (existing.length > 0) {
-      // Update existing standing
-      const current = existing[0];
-      await db
-        .update(poolStandings)
-        .set({
-          wins: won ? current.wins + 1 : current.wins,
-          losses: won ? current.losses : current.losses + 1,
-          pointsFor: current.pointsFor + pointsFor,
-          pointsAgainst: current.pointsAgainst + pointsAgainst,
-        })
-        .where(eq(poolStandings.podId, podId));
-    } else {
-      // Create new standing
-      await db.insert(poolStandings).values({
-        tournamentId,
-        podId,
-        wins: won ? 1 : 0,
-        losses: won ? 0 : 1,
-        pointsFor,
-        pointsAgainst,
-      });
-    }
-  } catch (error) {
-    // Log error but don't throw - this allows the game to complete even if a pod doesn't exist
-    console.error(`Warning: Failed to update standings for pod ${podId}:`, error);
-    console.error(
-      `This pod may not exist in the database. Check your game schedule data.`
-    );
-  }
+  await tx
+    .insert(poolStandings)
+    .values({
+      tournamentId,
+      podId,
+      wins: winInc,
+      losses: lossInc,
+      pointsFor,
+      pointsAgainst,
+    })
+    .onConflictDoUpdate({
+      target: [poolStandings.tournamentId, poolStandings.podId],
+      set: {
+        wins: sql`${poolStandings.wins} + ${winInc}`,
+        losses: sql`${poolStandings.losses} + ${lossInc}`,
+        pointsFor: sql`${poolStandings.pointsFor} + ${pointsFor}`,
+        pointsAgainst: sql`${poolStandings.pointsAgainst} + ${pointsAgainst}`,
+      },
+    });
 }

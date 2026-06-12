@@ -53,8 +53,10 @@ export function TournamentProvider({
       }
 
       try {
+        // Identity is derived server-side from the session cookie; do not pass
+        // userId as a query param (the endpoint ignores it).
         const response = await fetch(
-          `/api/tournaments/${tournament.id}/role?userId=${userId}`
+          `/api/tournaments/${tournament.id}/role`
         );
         if (response.ok) {
           const data = await response.json();
