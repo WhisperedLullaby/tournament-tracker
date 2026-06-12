@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { bracketMatches, tournaments } from "@/lib/db/schema";
 import { eq, asc, and } from "drizzle-orm";
+import { requireUser } from "@/lib/auth/api-auth";
+import { parseBody, tournamentIdBody } from "@/lib/validation/api";
 
 /**
  * POST /api/bracket/games/start
@@ -9,16 +11,13 @@ import { eq, asc, and } from "drizzle-orm";
  */
 export async function POST(request: NextRequest) {
   try {
-    // Parse request body to get tournament ID
-    const body = await request.json();
-    const { tournamentId } = body;
+    // Scorekeeping is open to any signed-in user (organizer, volunteer, player).
+    const auth = await requireUser();
+    if ("response" in auth) return auth.response;
 
-    if (!tournamentId) {
-      return NextResponse.json(
-        { error: "Tournament ID is required" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(request, tournamentIdBody);
+    if ("response" in parsed) return parsed.response;
+    const { tournamentId } = parsed.data;
 
     // Fetch tournament to get scoring rules
     const tournament = await db.query.tournaments.findFirst({

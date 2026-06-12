@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { poolMatches, tournaments } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { updatePoolStandings } from "@/lib/db/standings";
+import { requireUser } from "@/lib/auth/api-auth";
 
 /**
  * POST /api/games/[id]/complete
@@ -13,6 +14,10 @@ export async function POST(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Scorekeeping is open to any signed-in user (organizer, volunteer, player).
+    const auth = await requireUser();
+    if ("response" in auth) return auth.response;
+
     const { id } = await context.params;
     const gameId = parseInt(id);
 
@@ -84,30 +89,36 @@ export async function POST(
       );
     }
 
-    // Update game status to completed
-    await db
+    // Atomically flip in_progress → completed. Only the request that actually
+    // performs the transition gets a row back, so concurrent double-taps can't
+    // both proceed to double-count standings.
+    const [completed] = await db
       .update(poolMatches)
       .set({
         status: "completed",
         updatedAt: new Date(),
       })
-      .where(eq(poolMatches.id, gameId));
+      .where(
+        and(eq(poolMatches.id, gameId), eq(poolMatches.status, "in_progress"))
+      )
+      .returning();
+
+    if (!completed) {
+      // Another request already completed this game.
+      return NextResponse.json(
+        { error: "Game is no longer in progress" },
+        { status: 409 }
+      );
+    }
 
     // Update pool standings for all involved pods
-    const teamAPods = game.teamAPods as number[];
-    const teamBPods = game.teamBPods as number[];
+    const teamAPods = completed.teamAPods as number[];
+    const teamBPods = completed.teamBPods as number[];
     await updatePoolStandings(game.tournamentId, teamAPods, teamBPods, teamAScore, teamBScore);
-
-    // Fetch the updated game
-    const updatedGames = await db
-      .select()
-      .from(poolMatches)
-      .where(eq(poolMatches.id, gameId))
-      .limit(1);
 
     return NextResponse.json({
       success: true,
-      game: updatedGames[0],
+      game: completed,
       standingsUpdated: true,
     });
   } catch (error) {

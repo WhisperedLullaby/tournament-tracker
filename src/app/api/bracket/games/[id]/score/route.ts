@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { bracketMatches } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { requireUser } from "@/lib/auth/api-auth";
+import { parseBody, scoreBody } from "@/lib/validation/api";
 
 /**
  * PATCH /api/bracket/games/[id]/score
@@ -12,6 +14,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Scorekeeping is open to any signed-in user (organizer, volunteer, player).
+    const auth = await requireUser();
+    if ("response" in auth) return auth.response;
+
     const { id } = await params;
     const gameId = parseInt(id);
 
@@ -19,21 +25,9 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid game ID" }, { status: 400 });
     }
 
-    const body = await request.json();
-    const { teamAScore, teamBScore } = body;
-
-    // Validate scores
-    if (
-      typeof teamAScore !== "number" ||
-      typeof teamBScore !== "number" ||
-      teamAScore < 0 ||
-      teamBScore < 0
-    ) {
-      return NextResponse.json(
-        { error: "Invalid score values" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(request, scoreBody);
+    if ("response" in parsed) return parsed.response;
+    const { teamAScore, teamBScore } = parsed.data;
 
     // Update the match score
     const updated = await db

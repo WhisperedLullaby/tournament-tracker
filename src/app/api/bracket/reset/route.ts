@@ -6,6 +6,8 @@ import {
   createBracketTeamsFromStandings,
   seedBracketMatches,
 } from "@/lib/db/queries";
+import { requireOrganizer } from "@/lib/auth/api-auth";
+import { parseBody, tournamentIdBody } from "@/lib/validation/api";
 
 /**
  * POST /api/bracket/reset
@@ -14,15 +16,13 @@ import {
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { tournamentId } = body;
+    const parsed = await parseBody(request, tournamentIdBody);
+    if ("response" in parsed) return parsed.response;
+    const { tournamentId } = parsed.data;
 
-    if (!tournamentId) {
-      return NextResponse.json(
-        { error: "Tournament ID is required" },
-        { status: 400 }
-      );
-    }
+    // Destructive teardown — organizer only (scorekeepers cannot wipe the bracket).
+    const auth = await requireOrganizer(tournamentId);
+    if ("response" in auth) return auth.response;
 
     // Delete existing bracket matches
     await db
