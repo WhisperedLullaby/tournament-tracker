@@ -33,15 +33,14 @@ export function PositionSelector({
           <button
             key={position}
             type="button"
-            disabled={isFull}
-            onClick={() => !isFull && onChange(position)}
+            onClick={() => onChange(position)}
             className={cn(
-              "rounded-lg border p-3 text-left transition-all",
+              "rounded-lg border p-3 text-left transition-all cursor-pointer",
               isSelected
                 ? "border-primary bg-primary/10 ring-2 ring-primary/30"
                 : isFull
-                  ? "cursor-not-allowed border-muted bg-muted/30 opacity-50"
-                  : "border-border hover:border-primary/50 hover:bg-accent/40 cursor-pointer"
+                  ? "border-muted bg-muted/30 hover:border-primary/50"
+                  : "border-border hover:border-primary/50 hover:bg-accent/40"
             )}
           >
             <p className="text-sm font-medium leading-tight">
@@ -57,7 +56,9 @@ export function PositionSelector({
                     : "text-muted-foreground"
               )}
             >
-              {isFull ? "Full" : `${available} spot${available !== 1 ? "s" : ""} left`}
+              {isFull
+                ? "Full — join waitlist"
+                : `${available} spot${available !== 1 ? "s" : ""} left`}
             </p>
           </button>
         );

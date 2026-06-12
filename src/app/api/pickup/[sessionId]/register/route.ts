@@ -7,7 +7,7 @@ import {
   getUserPickupRegistration,
   removePickupRegistration,
 } from "@/lib/db/pickup-queries";
-import { and, count, eq, sql } from "drizzle-orm";
+import { and, count, eq, inArray, sql } from "drizzle-orm";
 import { parseBody, pickupRegisterBody } from "@/lib/validation/api";
 
 export async function POST(
@@ -91,6 +91,9 @@ export async function POST(
       });
       if (already) return { duplicate: true as const };
 
+      // "attended" still holds the spot once attendance has been taken —
+      // registration is open through the attendance phase, so checked-in
+      // players must count toward capacity.
       const [{ registered }] = await tx
         .select({ registered: count() })
         .from(pickupRegistrations)
@@ -98,7 +101,7 @@ export async function POST(
           and(
             eq(pickupRegistrations.sessionId, id),
             eq(pickupRegistrations.position, position),
-            eq(pickupRegistrations.status, "registered")
+            inArray(pickupRegistrations.status, ["registered", "attended"])
           )
         );
 

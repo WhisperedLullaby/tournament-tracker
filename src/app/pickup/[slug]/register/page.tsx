@@ -62,7 +62,8 @@ export default function PickupRegisterPage() {
       .then((d) => {
         const counts: Record<string, number> = {};
         for (const reg of d.registrations ?? []) {
-          if (reg.status === "registered") {
+          // "attended" still holds the spot once attendance has been taken
+          if (reg.status === "registered" || reg.status === "attended") {
             counts[reg.position] = (counts[reg.position] ?? 0) + 1;
           }
         }
@@ -114,7 +115,10 @@ export default function PickupRegisterPage() {
     );
   }
 
-  if (session.status !== "upcoming") {
+  // The API accepts registrations until the session is active/completed, and
+  // withdrawal is open through the attendance phase — mirror that window here
+  // so a player who withdraws during check-in can still re-register.
+  if (session.status !== "upcoming" && session.status !== "attendance") {
     return (
       <>
         <Navigation />

@@ -73,8 +73,12 @@ export default function PickupSessionPage() {
     fetchRegistrations().finally(() => setRegsLoading(false));
   }, [fetchRegistrations]);
 
+  // Registration stays open through the attendance phase (the API only
+  // rejects active/completed) so a player who withdraws during check-in —
+  // or a walk-up — can still sign up.
   const canRegister =
-    session.status === "upcoming" && !userRegistration;
+    (session.status === "upcoming" || session.status === "attendance") &&
+    !userRegistration;
 
   // Removal is allowed until the session actually starts — the API rejects
   // active/completed sessions, so mirror that here.
