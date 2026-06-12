@@ -1,19 +1,92 @@
 "use client";
 
+import { useState } from "react";
 import type { PickupRegistration } from "@/lib/db/schema";
 import { POSITION_ORDER, POSITION_LABELS } from "@/lib/pickup/positions";
 import { Badge } from "@/components/ui/badge";
-import { Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Users, X } from "lucide-react";
 
 interface PositionRosterProps {
   positionLimits: Record<string, number>;
   registrations: PickupRegistration[];
+  // Organizers can remove anyone; a player can remove themselves. The page
+  // decides — the roster just renders the control where this returns true.
+  canRemove?: (reg: PickupRegistration) => boolean;
+  onRemove?: (reg: PickupRegistration) => Promise<void>;
 }
 
-export function PositionRoster({ positionLimits, registrations }: PositionRosterProps) {
+export function PositionRoster({
+  positionLimits,
+  registrations,
+  canRemove,
+  onRemove,
+}: PositionRosterProps) {
+  const [confirmingId, setConfirmingId] = useState<number | null>(null);
+  const [removingId, setRemovingId] = useState<number | null>(null);
+
   const activePositions = POSITION_ORDER.filter(
     (pos) => (positionLimits[pos] ?? 0) > 0
   );
+
+  async function handleRemove(reg: PickupRegistration) {
+    if (!onRemove) return;
+    setRemovingId(reg.id);
+    try {
+      await onRemove(reg);
+      setConfirmingId(null);
+    } finally {
+      setRemovingId(null);
+    }
+  }
+
+  function removeConfirm(reg: PickupRegistration) {
+    return (
+      <div
+        key={reg.id}
+        className="flex items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1"
+      >
+        <span className="truncate text-xs font-medium text-destructive">
+          Remove {reg.displayName}?
+        </span>
+        <div className="flex shrink-0 gap-1">
+          <Button
+            variant="destructive"
+            size="sm"
+            className="h-6 px-2 text-xs"
+            disabled={removingId === reg.id}
+            onClick={() => handleRemove(reg)}
+          >
+            {removingId === reg.id ? "Removing…" : "Remove"}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs"
+            disabled={removingId === reg.id}
+            onClick={() => setConfirmingId(null)}
+          >
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  function removeButton(reg: PickupRegistration) {
+    if (!onRemove || !canRemove?.(reg)) return null;
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="ml-auto h-6 w-6 shrink-0 p-0 text-muted-foreground hover:text-destructive"
+        onClick={() => setConfirmingId(reg.id)}
+        aria-label={`Remove ${reg.displayName}`}
+      >
+        <X className="h-3.5 w-3.5" />
+      </Button>
+    );
+  }
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -48,15 +121,20 @@ export function PositionRoster({ positionLimits, registrations }: PositionRoster
             </div>
 
             <div className="space-y-1.5">
-              {confirmed.map((reg) => (
-                <div
-                  key={reg.id}
-                  className="flex items-center gap-2 text-sm"
-                >
-                  <div className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
-                  <span className="truncate">{reg.displayName}</span>
-                </div>
-              ))}
+              {confirmed.map((reg) =>
+                confirmingId === reg.id ? (
+                  removeConfirm(reg)
+                ) : (
+                  <div
+                    key={reg.id}
+                    className="flex items-center gap-2 text-sm"
+                  >
+                    <div className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
+                    <span className="truncate">{reg.displayName}</span>
+                    {removeButton(reg)}
+                  </div>
+                )
+              )}
 
               {Array.from({ length: openSpots }).map((_, i) => (
                 <div
@@ -76,17 +154,22 @@ export function PositionRoster({ positionLimits, registrations }: PositionRoster
                 </p>
                 {waitlisted
                   .sort((a, b) => (a.waitlistPosition ?? 0) - (b.waitlistPosition ?? 0))
-                  .map((reg) => (
-                    <div
-                      key={reg.id}
-                      className="flex items-center gap-2 text-xs text-amber-700"
-                    >
-                      <span className="font-mono text-amber-500">
-                        #{reg.waitlistPosition}
-                      </span>
-                      <span className="truncate">{reg.displayName}</span>
-                    </div>
-                  ))}
+                  .map((reg) =>
+                    confirmingId === reg.id ? (
+                      removeConfirm(reg)
+                    ) : (
+                      <div
+                        key={reg.id}
+                        className="flex items-center gap-2 text-xs text-amber-700"
+                      >
+                        <span className="font-mono text-amber-500">
+                          #{reg.waitlistPosition}
+                        </span>
+                        <span className="truncate">{reg.displayName}</span>
+                        {removeButton(reg)}
+                      </div>
+                    )
+                  )}
               </div>
             )}
           </div>

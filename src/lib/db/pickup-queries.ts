@@ -6,7 +6,7 @@ import {
   pickupGames,
   pickupPlayerStats,
 } from "./schema";
-import { eq, and, count, sql, desc, asc } from "drizzle-orm";
+import { eq, and, count, sql, desc, asc, gt } from "drizzle-orm";
 
 export async function getPickupSessionBySlug(slug: string) {
   return db.query.pickupSessions.findFirst({
@@ -106,6 +106,69 @@ export async function getUserPickupRegistration(
       eq(pickupRegistrations.userId, userId),
       eq(pickupRegistrations.sessionId, sessionId)
     ),
+  });
+}
+
+// Delete a registration and keep the waitlist consistent: if the removed
+// player held a confirmed spot, the first waitlisted player for that position
+// is promoted and everyone behind them renumbers; if the removed player was
+// waitlisted, everyone behind them moves up one. One transaction so a partial
+// failure can't leave a gap or a duplicate waitlist position.
+export async function removePickupRegistration(
+  registration: typeof pickupRegistrations.$inferSelect
+) {
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(pickupRegistrations)
+      .where(eq(pickupRegistrations.id, registration.id));
+
+    if (registration.status === "registered") {
+      const nextWaitlisted = await tx.query.pickupRegistrations.findFirst({
+        where: and(
+          eq(pickupRegistrations.sessionId, registration.sessionId),
+          eq(pickupRegistrations.position, registration.position),
+          eq(pickupRegistrations.status, "waitlisted")
+        ),
+        orderBy: [pickupRegistrations.waitlistPosition],
+      });
+
+      if (nextWaitlisted) {
+        await tx
+          .update(pickupRegistrations)
+          .set({ status: "registered", waitlistPosition: null, updatedAt: new Date() })
+          .where(eq(pickupRegistrations.id, nextWaitlisted.id));
+
+        await tx
+          .update(pickupRegistrations)
+          .set({
+            waitlistPosition: sql`${pickupRegistrations.waitlistPosition} - 1`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(pickupRegistrations.sessionId, registration.sessionId),
+              eq(pickupRegistrations.position, registration.position),
+              eq(pickupRegistrations.status, "waitlisted"),
+              gt(pickupRegistrations.waitlistPosition, nextWaitlisted.waitlistPosition!)
+            )
+          );
+      }
+    } else if (registration.status === "waitlisted") {
+      await tx
+        .update(pickupRegistrations)
+        .set({
+          waitlistPosition: sql`${pickupRegistrations.waitlistPosition} - 1`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(pickupRegistrations.sessionId, registration.sessionId),
+            eq(pickupRegistrations.position, registration.position),
+            eq(pickupRegistrations.status, "waitlisted"),
+            gt(pickupRegistrations.waitlistPosition, registration.waitlistPosition!)
+          )
+        );
+    }
   });
 }
 
