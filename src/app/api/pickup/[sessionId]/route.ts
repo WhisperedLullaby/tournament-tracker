@@ -30,6 +30,12 @@ export async function PATCH(
     }
 
     const body = await request.json();
+    if (
+      "status" in body &&
+      !["upcoming", "attendance", "active", "completed"].includes(body.status)
+    ) {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    }
     const allowed = [
       "title", "date", "startTime", "estimatedEndTime", "location", "description",
       "totalCapacity", "seriesFormat", "positionLimits", "scoringRules", "status",
