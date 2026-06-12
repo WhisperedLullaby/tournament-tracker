@@ -22,6 +22,31 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { POSITION_ORDER, POSITION_LABELS } from "@/lib/pickup/positions";
 
+type SessionStatus = "upcoming" | "attendance" | "active" | "completed";
+
+const STATUS_OPTIONS: { value: SessionStatus; label: string; hint: string }[] = [
+  {
+    value: "upcoming",
+    label: "Upcoming",
+    hint: "Sign-ups are open. Players and organizers can change the roster.",
+  },
+  {
+    value: "attendance",
+    label: "Starting Soon (attendance)",
+    hint: "Check-in phase. Roster changes are still allowed; sign-ups are closed.",
+  },
+  {
+    value: "active",
+    label: "In Progress",
+    hint: "Games are being played. The roster is locked.",
+  },
+  {
+    value: "completed",
+    label: "Completed",
+    hint: "The session is over. The roster is locked.",
+  },
+];
+
 export default function PickupSettingsPage() {
   const { session, isOrganizer, isLoading } = usePickup();
   const { user } = useAuth();
@@ -45,6 +70,11 @@ export default function PickupSettingsPage() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const [status, setStatus] = useState<SessionStatus>(session.status);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [statusSuccess, setStatusSuccess] = useState(false);
 
   function setPositionLimit(position: string, value: number) {
     setPositionLimits((prev) => ({ ...prev, [position]: Math.max(0, value) }));
@@ -117,6 +147,33 @@ export default function PickupSettingsPage() {
     }
   }
 
+  async function handleStatusUpdate() {
+    setStatusError(null);
+    setStatusSuccess(false);
+    setIsUpdatingStatus(true);
+    try {
+      const res = await fetch(`/api/pickup/${session.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatusError(data.error ?? "Status update failed.");
+        return;
+      }
+      setStatusSuccess(true);
+      setTimeout(() => setStatusSuccess(false), 3000);
+      // Session comes from the server layout via PickupProvider — refresh so
+      // every page (roster, attendance, lineups) sees the new status.
+      router.refresh();
+    } catch {
+      setStatusError("An unexpected error occurred.");
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  }
+
   async function handleDelete() {
     setIsDeleting(true);
     try {
@@ -159,6 +216,60 @@ export default function PickupSettingsPage() {
             Settings saved successfully.
           </div>
         )}
+
+        {/* Session status — separate from the settings form so a phase change
+            is a deliberate action, not a side effect of a routine save */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Session Status</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {statusError && (
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                {statusError}
+              </div>
+            )}
+            {statusSuccess && (
+              <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                Status updated.
+              </div>
+            )}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Select
+                value={status}
+                onValueChange={(v) => setStatus(v as SessionStatus)}
+              >
+                <SelectTrigger className="sm:flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isUpdatingStatus || status === session.status}
+                onClick={handleStatusUpdate}
+              >
+                {isUpdatingStatus ? "Updating…" : "Update Status"}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {STATUS_OPTIONS.find((o) => o.value === status)?.hint}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Moving a session backward (e.g. back to Upcoming after taking
+              attendance) keeps existing check-in marks and any generated
+              lineups — re-taking attendance later overwrites the marks, and
+              lineups can be deleted from the Lineups page.
+            </p>
+          </CardContent>
+        </Card>
 
         <form onSubmit={handleSave} className="space-y-6">
           <Card>

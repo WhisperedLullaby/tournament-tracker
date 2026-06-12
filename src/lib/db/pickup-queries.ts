@@ -110,10 +110,11 @@ export async function getUserPickupRegistration(
 }
 
 // Delete a registration and keep the waitlist consistent: if the removed
-// player held a confirmed spot, the first waitlisted player for that position
-// is promoted and everyone behind them renumbers; if the removed player was
-// waitlisted, everyone behind them moves up one. One transaction so a partial
-// failure can't leave a gap or a duplicate waitlist position.
+// player held a confirmed spot ("registered", or "attended" once they've been
+// checked in), the first waitlisted player for that position is promoted and
+// everyone behind them renumbers; if the removed player was waitlisted,
+// everyone behind them moves up one. One transaction so a partial failure
+// can't leave a gap or a duplicate waitlist position.
 export async function removePickupRegistration(
   registration: typeof pickupRegistrations.$inferSelect
 ) {
@@ -122,7 +123,10 @@ export async function removePickupRegistration(
       .delete(pickupRegistrations)
       .where(eq(pickupRegistrations.id, registration.id));
 
-    if (registration.status === "registered") {
+    if (
+      registration.status === "registered" ||
+      registration.status === "attended"
+    ) {
       const nextWaitlisted = await tx.query.pickupRegistrations.findFirst({
         where: and(
           eq(pickupRegistrations.sessionId, registration.sessionId),
